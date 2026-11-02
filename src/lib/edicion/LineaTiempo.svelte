@@ -2,6 +2,7 @@
      Pulsar la barra salta a ese punto; pulsar las horas permite escribirlas a la décima. -->
 <script lang="ts">
   import { formato, t } from "../i18n";
+  import { arrastrar } from "./arrastre";
   import { formatearTiempo } from "./tiempo";
 
   let {
@@ -26,30 +27,26 @@
   const MINIMO_MS = 100;
 
   let barra: HTMLDivElement;
-  let arrastrando: "inicio" | "fin" | "posicion" | null = null;
 
   const pct = (ms: number) => `${duracionMs ? (ms / duracionMs) * 100 : 0}%`;
 
-  function msEn(evento: PointerEvent): number {
+  function msEn(evento: PointerEvent | MouseEvent): number {
     const r = barra.getBoundingClientRect();
     return Math.round(Math.min(Math.max((evento.clientX - r.left) / r.width, 0), 1) * duracionMs);
   }
 
   function empezar(evento: PointerEvent, que: "inicio" | "fin" | "posicion") {
-    evento.stopPropagation();
-    (evento.currentTarget as Element).setPointerCapture(evento.pointerId);
-    arrastrando = que;
-    mover(evento);
+    mover(evento, que);
+    arrastrar(evento, (_dx, _dy, e) => mover(e, que));
   }
 
-  function mover(evento: PointerEvent) {
-    if (!arrastrando) return;
+  function mover(evento: PointerEvent, que: "inicio" | "fin" | "posicion") {
     const ms = msEn(evento);
-    if (arrastrando === "inicio") {
+    if (que === "inicio") {
       const inicio = Math.min(ms, finMs - MINIMO_MS);
       onrecorte(Math.max(0, inicio), finMs);
       onbuscar(Math.max(0, inicio));
-    } else if (arrastrando === "fin") {
+    } else if (que === "fin") {
       const fin = Math.max(ms, inicioMs + MINIMO_MS);
       onrecorte(inicioMs, Math.min(duracionMs, fin));
       onbuscar(Math.min(duracionMs, fin));
@@ -67,8 +64,6 @@
     class="barra"
     bind:this={barra}
     onpointerdown={(e) => empezar(e, "posicion")}
-    onpointermove={mover}
-    onpointerup={() => (arrastrando = null)}
     role="slider"
     aria-valuemin={0}
     aria-valuemax={duracionMs}
@@ -83,16 +78,12 @@
       class="tirador"
       style:left={pct(inicioMs)}
       onpointerdown={(e) => empezar(e, "inicio")}
-      onpointermove={mover}
-      onpointerup={() => (arrastrando = null)}
       role="presentation"
     ></span>
     <span
       class="tirador"
       style:left={pct(finMs)}
       onpointerdown={(e) => empezar(e, "fin")}
-      onpointermove={mover}
-      onpointerup={() => (arrastrando = null)}
       role="presentation"
     ></span>
   </div>

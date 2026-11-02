@@ -19,12 +19,15 @@ use crate::cache::{self, Meta};
 use crate::compartir;
 use crate::formatos;
 use crate::motor::{self, Motor};
+use crate::sesiones;
 
 const ARCHIVO_TITULO: &str = "titulo.txt";
 /// Lado mayor de las miniaturas
 const LADO_MINIATURA: u32 = 480;
 /// Como mucho un aviso de progreso a la interfaz cada tanto
 const INTERVALO_PROGRESO: Duration = Duration::from_millis(150);
+/// Máximo de vídeos que se bajan de un carrusel
+const MAX_CARRUSEL: usize = 20;
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -335,7 +338,7 @@ impl Descargas {
     fn descargar_en(&self, descarga: &Descarga, carpeta: &Path) -> Result<(), Fallo> {
         let motor = self.motor().map_err(Fallo::Error)?;
         let _ = fs::remove_dir_all(carpeta);
-        let mut meta = Meta {
+        let meta = Meta {
             url: descarga.url.clone(),
             calidad: descarga.calidad,
             creado: descarga.creado,
@@ -350,13 +353,15 @@ impl Descargas {
         let formato = (!calidad.solo_audio())
             .then(|| formatos::formato(calidad.altura_max(), formatos::es_tiktok(&descarga.url)));
         self.ejecutar(&motor, descarga, carpeta, formato.as_deref())?;
-        let mut archivo = cache::archivo_final(carpeta).ok_or_else(sin_archivo)?;
+        let mut archivos = cache::archivos_finales(carpeta);
 
         // Comprobación de audio: hay formatos que dicen tener sonido y no lo tienen (algunos
         // H.265 de TikTok, yt-dlp issues 16622 y 17372). Si un vídeo llega mudo, se repite la
         // descarga con un formato de imagen y sonido juntos en H.264, que siempre lo trae.
-        if !calidad.solo_audio() && !tiene_audio(&motor, &archivo) {
-            let _ = fs::remove_file(&archivo);
+        if !calidad.solo_audio() && archivos.iter().any(|a| !tiene_audio(&motor, a)) {
+            for archivo in &archivos {
+                let _ = fs::remove_file(archivo);
+            }
             let _ = fs::remove_file(carpeta.join(ARCHIVO_TITULO));
             self.cambiar(&descarga.id, |d| {
                 d.estado = Estado::Analizando;
@@ -365,35 +370,86 @@ impl Descargas {
             self.avisar();
             let formato = formatos::formato_con_audio(calidad.altura_max());
             self.ejecutar(&motor, descarga, carpeta, Some(&formato))?;
-            archivo = cache::archivo_final(carpeta).ok_or_else(sin_archivo)?;
+            archivos = cache::archivos_finales(carpeta);
+        }
+        if archivos.is_empty() {
+            return Err(sin_archivo());
         }
 
-        let miniatura = carpeta.join(cache::ARCHIVO_MINIATURA);
-        if !es_audio(&archivo) {
-            crear_miniatura(&motor, &archivo, &miniatura);
-        }
-        meta.titulo = fs::read_to_string(carpeta.join(ARCHIVO_TITULO))
-            .ok()
-            .and_then(|t| t.lines().map(str::trim).find(|l| !l.is_empty()).map(String::from));
-        meta.duracion = duracion(&motor, &archivo);
-        meta.completada = true;
-        cache::escribir_meta(carpeta, &meta)?;
+        // Un título por línea: uno por vídeo si es un carrusel
+        let titulos: Vec<String> = fs::read_to_string(carpeta.join(ARCHIVO_TITULO))
+            .map(|t| t.lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect())
+            .unwrap_or_default();
 
-        self.cambiar(&descarga.id, |d| {
-            d.estado = Estado::Completada;
-            d.progreso = Some(1.0);
-            d.eta = None;
-            d.titulo = meta.titulo.clone();
-            d.duracion = meta.duracion;
-            d.es_audio = es_audio(&archivo);
-            d.miniatura = miniatura.exists().then(|| miniatura.clone());
-            d.archivo = Some(archivo.clone());
-        });
+        // Carrusel de Instagram o X: el primer vídeo se queda en esta tarjeta y cada uno de
+        // los demás pasa a su propia tarjeta (su carpeta, su miniatura y su meta.json)
+        for (i, archivo) in archivos.iter().enumerate().skip(1) {
+            let id = format!("{}-{}", descarga.id, i + 1);
+            let destino = cache::carpeta_descargas().join(&id);
+            let _ = fs::remove_dir_all(&destino);
+            fs::create_dir_all(&destino)?;
+            let movido = destino.join(format!("video.{}", extension(archivo)));
+            fs::rename(archivo, &movido)?;
+            let titulo = titulos.get(i).or(titulos.first()).cloned();
+            let extra = Descarga {
+                id,
+                creado: descarga.creado.saturating_sub(i as u64),
+                ..descarga.clone()
+            };
+            let terminada = self.terminar(&motor, &extra, &destino, &movido, titulo)?;
+            let mut lista = self.lista.lock().unwrap();
+            let posicion = lista.iter().position(|d| d.id == descarga.id).map_or(0, |p| p + i);
+            let posicion = posicion.min(lista.len());
+            lista.insert(posicion, terminada);
+        }
+
+        // El primero se llama siempre video.<ext>, como una descarga normal
+        let primero = carpeta.join(format!("video.{}", extension(&archivos[0])));
+        if archivos[0] != primero {
+            fs::rename(&archivos[0], &primero)?;
+        }
+        let terminada = self.terminar(&motor, descarga, carpeta, &primero, titulos.first().cloned())?;
+        self.cambiar(&descarga.id, |d| *d = terminada.clone());
         self.avisar();
-        if let Some(terminada) = self.buscar(&descarga.id) {
-            avisos::descarga_terminada(&self.app, &terminada);
-        }
+        avisos::descarga_terminada(&self.app, &terminada);
         Ok(())
+    }
+
+    /// Miniatura, duración y meta.json de un vídeo ya descargado; devuelve su tarjeta completada
+    fn terminar(
+        &self,
+        motor: &Motor,
+        descarga: &Descarga,
+        carpeta: &Path,
+        archivo: &Path,
+        titulo: Option<String>,
+    ) -> Result<Descarga, Fallo> {
+        let miniatura = carpeta.join(cache::ARCHIVO_MINIATURA);
+        if !es_audio(archivo) {
+            crear_miniatura(motor, archivo, &miniatura);
+        }
+        let meta = Meta {
+            url: descarga.url.clone(),
+            calidad: descarga.calidad,
+            creado: descarga.creado,
+            titulo,
+            duracion: duracion(motor, archivo),
+            completada: true,
+            guardado: None,
+        };
+        cache::escribir_meta(carpeta, &meta)?;
+        Ok(Descarga {
+            estado: Estado::Completada,
+            progreso: Some(1.0),
+            eta: None,
+            titulo: meta.titulo,
+            duracion: meta.duracion,
+            es_audio: es_audio(archivo),
+            miniatura: miniatura.exists().then_some(miniatura),
+            archivo: Some(archivo.to_path_buf()),
+            guardado: None,
+            ..descarga.clone()
+        })
     }
 
     /// Una ejecución de yt-dlp. `formato` None = solo audio
@@ -412,13 +468,25 @@ impl Descargas {
                     .arg(format!("thumbnail:{}", carpeta.join("miniatura.%(ext)s").display()));
             }
         }
+        let plataforma = sesiones::Plataforma::de_url(&descarga.url);
+        if plataforma.is_some_and(|p| p.tiene_carruseles()) {
+            // Instagram y X: un carrusel es una "lista"; se bajan todos sus vídeos (yt-dlp no
+            // descarga las fotos)
+            comando.args(["--yes-playlist", "--playlist-items", &format!("1:{MAX_CARRUSEL}")]);
+        } else {
+            // YouTube y demás: solo el vídeo del enlace, aunque sea de una lista
+            comando.arg("--no-playlist");
+        }
+        // yt-dlp las lee y, al terminar, guarda en el mismo archivo las que se renueven
+        if let Some(cookies) = sesiones::cookies_para(&self.app, &descarga.url) {
+            comando.arg("--cookies").arg(cookies);
+        }
         comando
-            // Solo el vídeo del enlace, aunque sea de una lista de YouTube
-            .arg("--no-playlist")
             .args(["--newline", "--progress-template"])
             .arg("download:klippo|%(progress.downloaded_bytes)s|%(progress.total_bytes)s|%(progress.total_bytes_estimate)s|%(progress.eta)s")
             .arg("-o")
-            .arg(carpeta.join("video.%(ext)s"))
+            // video.mp4 si es uno solo; video-1.mp4, video-2.mp4… si es un carrusel
+            .arg(carpeta.join("video%(playlist_index&-{}|)s.%(ext)s"))
             // Guarda el título al terminar (after_move no activa el modo simulación)
             .args(["--print-to-file", "after_move:%(title)s"])
             .arg(carpeta.join(ARCHIVO_TITULO))
@@ -591,6 +659,10 @@ fn crear_miniatura(motor: &Motor, video: &Path, destino: &Path) {
             return;
         }
     }
+}
+
+fn extension(archivo: &Path) -> String {
+    archivo.extension().and_then(|e| e.to_str()).unwrap_or("mp4").to_lowercase()
 }
 
 fn es_audio(archivo: &Path) -> bool {

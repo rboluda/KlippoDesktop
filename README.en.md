@@ -21,8 +21,7 @@
 This is the desktop version of [Klippo for Android](https://github.com/rboluda/Klippo): the
 same idea, the same colors and everything learned there about each platform.
 
-> **Work in progress.** It already does what the Android app does except logging in to
-> Instagram, X and Facebook and carousels, which arrive in the next version.
+> It does what the Android app does, adapted to the desktop.
 
 ## What it does
 
@@ -31,6 +30,11 @@ same idea, the same colors and everything learned there about each platform.
   video: best, 1080p, 720p, 480p or audio only (M4A). On TikTok only formats with picture and
   sound together are used, and if a video arrives silent Klippo asks for it again in another
   format.
+- **Carousels** from Instagram and X: all their videos are downloaded (up to 20), each one in
+  its own card.
+- **Optional login** to Instagram, X and Facebook for videos that require it
+  (*Settings → Accounts*, or the button on the failed download). The official website opens in
+  a window; Klippo never sees your password and only keeps the cookies, on your computer.
 - Progress with time left, cancel, retry and, if a platform changes, **Update engine and
   retry** right from the card. List or grid with thumbnails.
 
@@ -58,9 +62,6 @@ same idea, the same colors and everything learned there about each platform.
   - Everything is applied at once with FFmpeg into an H.264 + AAC video, which you share or
     save from the same window.
 
-## What it will do
-
-- Log in to Instagram, X and Facebook for videos that require it, and carousels.
 
 ## Installation
 

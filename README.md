@@ -21,8 +21,7 @@
 Es la versión de escritorio de [Klippo para Android](https://github.com/rboluda/Klippo): la
 misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 
-> **En desarrollo.** Ya hace lo mismo que la app de Android salvo iniciar sesión en
-> Instagram, X y Facebook y los carruseles, que llegan en la próxima versión.
+> Hace lo mismo que la app de Android, adaptado al escritorio.
 
 ## Qué hace
 
@@ -30,6 +29,11 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
   H.264 + AAC para que el vídeo se vea y se comparta en cualquier sitio. Eliges la calidad en
   cada vídeo: mejor, 1080p, 720p, 480p o solo audio (M4A). En TikTok solo se usan formatos con
   imagen y sonido juntos, y si un vídeo llega mudo Klippo lo vuelve a pedir con otro formato.
+- **Carruseles** de Instagram y X: se descargan todos sus vídeos (hasta 20), cada uno en su
+  tarjeta.
+- **Sesión opcional** en Instagram, X y Facebook para los vídeos que la piden
+  (*Ajustes → Cuentas*, o el botón de la descarga fallida). Se abre la web oficial en una
+  ventana; Klippo nunca ve tu contraseña y solo guarda las cookies, en tu equipo.
 - Progreso con tiempo restante, cancelar, reintentar y, si una plataforma cambia, **Actualizar
   motor y reintentar** desde la propia tarjeta. Lista o mosaico con miniaturas.
 
@@ -57,9 +61,6 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
   - Todo se aplica de una vez con FFmpeg en un vídeo H.264 + AAC, y lo compartes o guardas
     desde la misma ventana.
 
-## Qué hará
-
-- Iniciar sesión en Instagram, X y Facebook para los vídeos que lo piden, y carruseles.
 
 ## Instalación
 

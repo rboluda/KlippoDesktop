@@ -10,6 +10,7 @@ mod entrada;
 mod formatos;
 mod marcador;
 mod motor;
+mod sesiones;
 
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
@@ -109,6 +110,10 @@ pub fn run() {
         })
         // Cerrar la ventana no cierra Klippo: sigue en la bandeja ("Salir" lo cierra del todo)
         .on_window_event(|ventana, evento| {
+            // (las ventanas de inicio de sesión sí se cierran)
+            if ventana.label() != "main" {
+                return;
+            }
             if let WindowEvent::CloseRequested { api, .. } = evento {
                 api.prevent_close();
                 let _ = ventana.hide();
@@ -144,6 +149,10 @@ pub fn run() {
             comandos::compartir_archivo,
             comandos::reproducir_archivo,
             comandos::mostrar_archivo,
+            comandos::estado_sesiones,
+            comandos::iniciar_sesion,
+            comandos::cerrar_sesion,
+            comandos::plataforma_de,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar Klippo");

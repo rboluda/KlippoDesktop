@@ -1,6 +1,7 @@
 <!-- Un texto o emoji sobre el vídeo: se arrastra, se cambia de tamaño con la rueda del ratón o
      el tirador, y se quita con × o con Supr -->
 <script lang="ts">
+  import { arrastrar } from "./arrastre";
   import { escalar, moverSuperpuesto, type Superpuesto } from "./modelo";
   import { dibujar } from "./render";
 
@@ -34,28 +35,20 @@
   const imagen = $derived(dibujo.lienzo.toDataURL());
   const escala = $derived(altoPx / altoVideo);
 
-  let arrastre: { modo: "mover" | "tamano"; x: number; y: number } | null = null;
-
   function empezar(evento: PointerEvent, modo: "mover" | "tamano") {
-    evento.stopPropagation();
     onseleccionar();
-    (evento.currentTarget as Element).setPointerCapture(evento.pointerId);
-    arrastre = { modo, x: evento.clientX, y: evento.clientY };
-  }
-
-  function arrastrar(evento: PointerEvent) {
-    if (!arrastre) return;
-    const dx = evento.clientX - arrastre.x;
-    const dy = evento.clientY - arrastre.y;
-    arrastre.x = evento.clientX;
-    arrastre.y = evento.clientY;
-    if (arrastre.modo === "mover") {
-      onchange(moverSuperpuesto(elemento, dx / anchoPx, dy / altoPx));
-    } else {
-      // El tirador de la esquina: alejarse del centro agranda
-      const mitad = (dibujo.lienzo.height * escala) / 2;
-      onchange(escalar(elemento, Math.max(0.5, (mitad + (dx + dy) / 2) / mitad)));
-    }
+    // Se trabaja sobre la última versión del elemento, no sobre la del inicio del arrastre
+    let actual = elemento;
+    arrastrar(evento, (dx, dy) => {
+      if (modo === "mover") {
+        actual = moverSuperpuesto(actual, dx / anchoPx, dy / altoPx);
+      } else {
+        // El tirador de la esquina: alejarse del centro agranda, acercarse encoge
+        const mitad = Math.max(8, (dibujar(actual, anchoVideo, altoVideo).lienzo.height * escala) / 2);
+        actual = escalar(actual, Math.max(0.5, (mitad + (dx + dy) / 2) / mitad));
+      }
+      onchange(actual);
+    });
   }
 
   function rueda(evento: WheelEvent) {
@@ -64,7 +57,6 @@
     onchange(escalar(elemento, evento.deltaY < 0 ? 1.08 : 1 / 1.08));
   }
 
-  const soltar = () => (arrastre = null);
 </script>
 
 <div
@@ -76,8 +68,6 @@
   style:width="{dibujo.lienzo.width * escala}px"
   style:height="{dibujo.lienzo.height * escala}px"
   onpointerdown={(e) => empezar(e, "mover")}
-  onpointermove={arrastrar}
-  onpointerup={soltar}
   onwheel={rueda}
   role="presentation"
 >
@@ -87,8 +77,6 @@
     <span
       class="tirador"
       onpointerdown={(e) => empezar(e, "tamano")}
-      onpointermove={arrastrar}
-      onpointerup={soltar}
       role="presentation"
     ></span>
   {/if}

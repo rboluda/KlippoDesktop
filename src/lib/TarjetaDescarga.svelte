@@ -24,11 +24,19 @@
   import Icono from "./Icono.svelte";
   import { formato, nombreCalidad, t } from "./i18n";
   import { actualizarMotor, motor } from "./motor.svelte";
+  import { iniciarSesion, plataformaDe, type Plataforma } from "./sesiones.svelte";
 
   let { descarga, mosaico = false }: { descarga: Descarga; mosaico?: boolean } = $props();
 
   let errorCompleto = $state(false);
   let menuAbierto = $state(false);
+
+  // Instagram, X o Facebook: si la descarga falla porque pide sesión, se ofrece iniciarla
+  let conSesion = $state<Plataforma | null>(null);
+  $effect(() => {
+    plataformaDe(descarga.url).then((p) => (conSesion = p));
+  });
+  const nombreConSesion = $derived(conSesion ? { instagram: "Instagram", x: "X", facebook: "Facebook" }[conSesion] : "");
 
   function elegir(accion: () => void) {
     menuAbierto = false;
@@ -108,7 +116,7 @@
     <p class="titulo" title={descarga.titulo ?? descarga.url}>{descarga.titulo ?? descarga.url}</p>
     {#if descarga.estado.tipo === "fallida"}
       <button class="estado error" onclick={() => (errorCompleto = !errorCompleto)}>{textoEstado}</button>
-      {#if pideSesion(descarga.estado.mensaje)}
+      {#if pideSesion(descarga.estado.mensaje) && !conSesion}
         <p class="estado">{t.pideSesion}</p>
       {/if}
     {:else}
@@ -192,9 +200,16 @@
   </div>
 
   {#if descarga.estado.tipo === "fallida"}
-    <button class="boton texto actualizar" onclick={actualizarYReintentar} disabled={motor.actualizando}>
-      {motor.actualizando ? t.actualizandoMotor : t.actualizarYReintentar}
-    </button>
+    <div class="actualizar">
+      {#if conSesion && pideSesion(descarga.estado.mensaje)}
+        <button class="boton texto" onclick={() => iniciarSesion(conSesion!)}>
+          {formato(t.iniciarSesionEn, nombreConSesion)}
+        </button>
+      {/if}
+      <button class="boton texto" onclick={actualizarYReintentar} disabled={motor.actualizando}>
+        {motor.actualizando ? t.actualizandoMotor : t.actualizarYReintentar}
+      </button>
+    </div>
   {/if}
 </article>
 
@@ -378,8 +393,13 @@
   .actualizar {
     grid-area: actualizar;
     justify-self: start;
-    height: 32px;
+    display: flex;
+    flex-wrap: wrap;
     margin-left: -12px;
+  }
+
+  .actualizar .boton {
+    height: 32px;
   }
 
   /* Mosaico: miniatura arriba, título y acciones debajo */

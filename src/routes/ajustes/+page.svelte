@@ -11,6 +11,7 @@
   import Icono from "$lib/Icono.svelte";
   import { formatearTamano, formato, nombreCalidad, t } from "$lib/i18n";
   import { actualizarMotor, cargarVersiones, motor } from "$lib/motor.svelte";
+  import { cargarSesiones, cerrarSesion, iniciarSesion, sesiones } from "$lib/sesiones.svelte";
 
   const REPO = "https://github.com/rboluda/KlippoDesktop";
 
@@ -35,6 +36,7 @@
     vigilarPortapapeles = await leer("vigilarPortapapeles", true);
     conWindows = await autoarranque.isEnabled().catch(() => false);
     cargarVersiones();
+    cargarSesiones();
   });
 
   function cambiarVigilarPortapapeles() {
@@ -145,6 +147,26 @@
         <button class="boton tonal" onclick={() => invoke("instalar_marcador")}>{t.instalar}</button>
       </div>
     </div>
+  </section>
+
+  <section>
+    <h2>{t.cuentas}</h2>
+    <div class="tarjeta">
+      {#each sesiones.lista as sesion (sesion.plataforma)}
+        <div class="fila">
+          <span class="textos">
+            <span class="titulo">{sesion.nombre}</span>
+            <span class="detalle">{sesion.iniciada ? t.sesionIniciada : t.sinSesion}</span>
+          </span>
+          {#if sesion.iniciada}
+            <button class="boton texto" onclick={() => cerrarSesion(sesion.plataforma)}>{t.cerrarSesion}</button>
+          {:else}
+            <button class="boton tonal" onclick={() => iniciarSesion(sesion.plataforma)}>{t.iniciarSesion}</button>
+          {/if}
+        </div>
+      {/each}
+    </div>
+    <p class="nota">{t.cuentasNota}</p>
   </section>
 
   <section>
@@ -272,6 +294,12 @@
   button.fila,
   label.fila {
     cursor: pointer;
+  }
+
+  .nota {
+    margin: 8px 4px 0;
+    font-size: 0.85rem;
+    color: var(--on-surface-variant);
   }
 
   select {

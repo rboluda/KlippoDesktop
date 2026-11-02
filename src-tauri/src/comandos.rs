@@ -7,7 +7,7 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::cache;
 use crate::entrada::{self, Entrada};
-use crate::{compartir, edicion, enlaces, marcador, Arranque};
+use crate::{compartir, edicion, enlaces, marcador, sesiones, Arranque};
 use crate::descargas::{Calidad, Descarga, Descargas};
 use crate::motor::{texto, ResultadoActualizacion, Versiones};
 use crate::traducir;
@@ -230,4 +230,31 @@ pub fn mostrar_archivo(app: AppHandle, ruta: String) -> Result<(), String> {
         return Err(no_encontrado());
     }
     app.opener().reveal_item_in_dir(ruta).map_err(texto)
+}
+
+// ---- Sesiones de Instagram, X y Facebook ----
+
+#[tauri::command]
+pub fn estado_sesiones(app: AppHandle) -> Vec<sesiones::EstadoSesion> {
+    sesiones::estado(&app)
+}
+
+/// Abre la web de la plataforma en una ventana; al detectar la sesión, guarda y la cierra
+/// (avisa con el evento "sesiones"). Async: en Windows, crear una ventana desde una orden
+/// síncrona (que corre en el hilo de las ventanas) la bloquea.
+#[tauri::command]
+pub async fn iniciar_sesion(app: AppHandle, plataforma: sesiones::Plataforma) -> Result<(), String> {
+    sesiones::iniciar(&app, plataforma)
+}
+
+#[tauri::command]
+pub async fn cerrar_sesion(app: AppHandle, plataforma: sesiones::Plataforma) -> Vec<sesiones::EstadoSesion> {
+    sesiones::cerrar(&app, plataforma);
+    sesiones::estado(&app)
+}
+
+/// Plataforma (con sesión posible) de un enlace, para el botón de la descarga fallida
+#[tauri::command]
+pub fn plataforma_de(url: String) -> Option<sesiones::Plataforma> {
+    sesiones::Plataforma::de_url(&url)
 }

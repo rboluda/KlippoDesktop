@@ -1,6 +1,7 @@
 <!-- Rectángulo que se arrastra y se ajusta por las esquinas: el encuadre (oscurece lo que se
      queda fuera) o una zona pixelada (difumina lo de debajo en la vista previa) -->
 <script lang="ts">
+  import { arrastrar } from "./arrastre";
   import { mover, redimensionar, type Zona } from "./modelo";
 
   let {
@@ -29,30 +30,18 @@
     titulo?: string;
   } = $props();
 
-  /** Esquina que se arrastra (-1 = se mueve la zona entera) */
-  let arrastre: { esquina: number; x: number; y: number } | null = null;
-
+  /** `esquina` -1 = se mueve la zona entera */
   function empezar(evento: PointerEvent, esquina: number) {
     if (!activa) return;
-    evento.stopPropagation();
-    (evento.currentTarget as Element).setPointerCapture(evento.pointerId);
-    arrastre = { esquina, x: evento.clientX, y: evento.clientY };
+    // La zona cambia en cada paso: se trabaja sobre la última versión, no sobre la del inicio
+    let actual = zona;
+    arrastrar(evento, (px, py) => {
+      const dx = px / anchoPx;
+      const dy = py / altoPx;
+      actual = esquina < 0 ? mover(actual, dx, dy) : redimensionar(actual, esquina, dx, dy, aspecto, proporcion, minimo);
+      onchange(actual);
+    });
   }
-
-  function arrastrar(evento: PointerEvent) {
-    if (!arrastre) return;
-    const dx = (evento.clientX - arrastre.x) / anchoPx;
-    const dy = (evento.clientY - arrastre.y) / altoPx;
-    arrastre.x = evento.clientX;
-    arrastre.y = evento.clientY;
-    onchange(
-      arrastre.esquina < 0
-        ? mover(zona, dx, dy)
-        : redimensionar(zona, arrastre.esquina, dx, dy, aspecto, proporcion, minimo),
-    );
-  }
-
-  const soltar = () => (arrastre = null);
 </script>
 
 <div
@@ -64,8 +53,6 @@
   style:height="{zona.alto * 100}%"
   title={titulo}
   onpointerdown={(e) => empezar(e, -1)}
-  onpointermove={arrastrar}
-  onpointerup={soltar}
   role="presentation"
 >
   {#if activa}
@@ -73,8 +60,6 @@
       <span
         class="esquina e{esquina}"
         onpointerdown={(e) => empezar(e, esquina)}
-        onpointermove={arrastrar}
-        onpointerup={soltar}
         role="presentation"
       ></span>
     {/each}

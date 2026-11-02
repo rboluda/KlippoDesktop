@@ -68,6 +68,28 @@ pub fn archivo_final(carpeta: &Path) -> Option<PathBuf> {
         .max_by_key(|p| p.metadata().map(|m| m.len()).unwrap_or(0))
 }
 
+/// Todos los vídeos o audios de la carpeta en orden: video.mp4, o video-1, video-2… video-10
+/// si es un carrusel
+pub fn archivos_finales(carpeta: &Path) -> Vec<PathBuf> {
+    let mut archivos: Vec<PathBuf> = fs::read_dir(carpeta)
+        .map(|e| e.flatten().map(|e| e.path()).collect())
+        .unwrap_or_default();
+    archivos.retain(|p| {
+        p.extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| EXTENSIONES.contains(&e.to_lowercase().as_str()))
+    });
+    let indice = |p: &PathBuf| -> u32 {
+        p.file_stem()
+            .and_then(|n| n.to_str())
+            .and_then(|n| n.rsplit_once('-'))
+            .and_then(|(_, i)| i.parse().ok())
+            .unwrap_or(0)
+    };
+    archivos.sort_by_key(indice);
+    archivos
+}
+
 /// Borra lo que tenga más de `edad_maxima`, salvo las descargas en curso.
 /// Cada carpeta de descarga se trata como un bloque: se borra entera o no se toca.
 pub fn limpiar(activas: &HashSet<String>, edad_maxima: Duration) {
