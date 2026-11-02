@@ -1,6 +1,7 @@
 <!-- Una descarga en la lista o en el mosaico: miniatura, título, estado y acciones -->
 <script lang="ts">
   import { convertFileSrc } from "@tauri-apps/api/core";
+  import { goto } from "$app/navigation";
   import {
     arrastrarFuera,
     cancelar,
@@ -68,8 +69,11 @@
     if (await actualizarMotor()) reintentar(descarga.id);
   }
 
+  // Pulsar la miniatura abre el editor (el audio no tiene imagen: se reproduce)
   function abrir() {
-    if (completada) reproducir(descarga.id);
+    if (!completada) return;
+    if (descarga.esAudio) reproducir(descarga.id);
+    else goto(`/editor/${descarga.id}`);
   }
 </script>
 
@@ -83,7 +87,7 @@
     disabled={!completada}
     draggable={completada}
     ondragstart={(e) => arrastrarFuera(e, descarga)}
-    title={completada ? `${t.reproducir} · ${t.arrastrar}` : undefined}
+    title={completada ? `${descarga.esAudio ? t.reproducir : t.editar} · ${t.arrastrar}` : undefined}
   >
     {#if descarga.miniatura}
       <img src={convertFileSrc(descarga.miniatura)} alt="" loading="lazy" />
@@ -124,6 +128,11 @@
       </button>
     {:else}
       {#if completada}
+        {#if !descarga.esAudio}
+          <button class="boton-icono" title={t.editar} aria-label={t.editar} onclick={abrir}>
+            <Icono nombre="editar" tamano={20} />
+          </button>
+        {/if}
         <button class="boton-icono" title={t.whatsapp} aria-label={t.whatsapp} onclick={() => whatsapp(descarga)}>
           <Icono nombre="whatsapp" tamano={20} />
         </button>
@@ -159,7 +168,7 @@
           </button>
           {#if menuAbierto}
             <div class="menu" role="menu">
-              <button role="menuitem" onclick={() => elegir(abrir)}>
+              <button role="menuitem" onclick={() => elegir(() => reproducir(descarga.id))}>
                 <Icono nombre="reproducir" tamano={20} />{t.reproducir}
               </button>
               <button role="menuitem" onclick={() => elegir(() => mostrarEnCarpeta(descarga.id))}>

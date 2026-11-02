@@ -21,8 +21,8 @@
 This is the desktop version of [Klippo for Android](https://github.com/rboluda/Klippo): the
 same idea, the same colors and everything learned there about each platform.
 
-> **Work in progress.** It already downloads, receives links from the browser, saves and
-> shares; the editor arrives in the next version.
+> **Work in progress.** It already does what the Android app does except logging in to
+> Instagram, X and Facebook and carousels, which arrive in the next version.
 
 ## What it does
 
@@ -49,10 +49,18 @@ same idea, the same colors and everything learned there about each platform.
 - A Windows notification when each download finishes, if Klippo isn't in front, with WhatsApp,
   Copy and Save.
 
+- **Edit** (click the thumbnail or the pencil):
+  - Trim by dragging the handles or typing the start and end to the tenth of a second, with a
+    looping preview of the selection.
+  - Crop to 9:16, 1:1, 4:5 or free: move and resize the frame over the video.
+  - Text with outline or background, and emojis: drag them and resize with the mouse wheel.
+  - Pixelate fixed areas (faces, number plates…) and remove the sound.
+  - Everything is applied at once with FFmpeg into an H.264 + AAC video, which you share or
+    save from the same window.
+
 ## What it will do
 
-- **Edit**: trim to the exact time, crop to 9:16, 1:1, 4:5 or free, add text and emojis,
-  pixelate areas and mute. Everything is applied at once with FFmpeg.
+- Log in to Instagram, X and Facebook for videos that require it, and carousels.
 
 ## Installation
 

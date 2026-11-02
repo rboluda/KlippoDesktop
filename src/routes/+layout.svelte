@@ -27,10 +27,14 @@
     empezarAEscuchar();
     comprobarAlAbrir();
     // Un enlace del marcador o de un aviso se atiende en Inicio, aunque se esté en Ajustes
-    const quitar = listen("enlace-pendiente", () => {
-      if (page.url.pathname !== "/") goto("/");
-    });
-    return () => quitar.then((f) => f());
+    const quitar = [
+      listen("enlace-pendiente", () => {
+        if (page.url.pathname !== "/") goto("/");
+      }),
+      // Al pulsar el aviso de "Vídeo descargado"
+      listen<string>("abrir-editor", (e) => goto(`/editor/${e.payload}`)),
+    ];
+    return () => quitar.forEach((q) => q.then((f) => f()));
   });
 
   // Soltar un archivo en la ventana haría que la página lo abriera en lugar de Klippo

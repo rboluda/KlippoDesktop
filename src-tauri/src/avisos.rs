@@ -97,8 +97,12 @@ fn accion_sobre_descarga(app: &AppHandle, id: &str, accion: Option<&str>) {
             )
         }),
         (Some("guardar"), Some(_)) => descargas.guardar(id).map(|ruta| guardado(app, &ruta)),
+        // El aviso en sí: Klippo con el vídeo en el editor (el audio, en la lista)
         _ => {
             mostrar_ventana(app);
+            if descargas.buscar(id).is_some_and(|d| !d.es_audio) {
+                let _ = app.emit("abrir-editor", id);
+            }
             Ok(())
         }
     };

@@ -2,12 +2,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::cache;
 use crate::entrada::{self, Entrada};
-use crate::{compartir, enlaces, marcador, Arranque};
+use crate::{compartir, edicion, enlaces, marcador, Arranque};
 use crate::descargas::{Calidad, Descarga, Descargas};
 use crate::motor::{texto, ResultadoActualizacion, Versiones};
 use crate::traducir;
@@ -155,4 +155,79 @@ pub fn compartir_descarga(app: AppHandle, descargas: Gestor, id: String) -> Resu
     let ventana = app.get_webview_window("main").ok_or_else(no_encontrado)?;
     let hwnd = ventana.hwnd().map_err(texto)?.0 as isize;
     compartir::compartir(hwnd, &archivo, &titulo).map_err(texto)
+}
+
+// ---- Editor ----
+
+/// Genera el vídeo editado; avisa del avance con el evento "exportacion" (de 0 a 1)
+#[tauri::command]
+pub async fn exportar(
+    app: AppHandle,
+    descargas: Gestor<'_>,
+    id: String,
+    parametros: edicion::Parametros,
+) -> Result<PathBuf, String> {
+    let motor = descargas.motor()?;
+    let original = descargas.archivo(&id).ok_or_else(no_encontrado)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        edicion::exportar(&motor, &id, &original, &parametros, |progreso| {
+            let _ = app.emit("exportacion", progreso);
+        })
+    })
+    .await
+    .map_err(texto)?
+}
+
+#[tauri::command]
+pub fn cancelar_exportacion() {
+    edicion::cancelar();
+}
+
+// ---- Guardar y compartir un archivo de la carpeta temporal (el vídeo exportado) ----
+
+/// Solo se aceptan archivos de la carpeta temporal de Klippo
+fn de_klippo(ruta: &str) -> Result<PathBuf, String> {
+    let ruta = std::fs::canonicalize(ruta).map_err(|_| no_encontrado())?;
+    let raiz = std::fs::canonicalize(cache::raiz()).map_err(texto)?;
+    if ruta.starts_with(&raiz) && ruta.is_file() { Ok(ruta) } else { Err(no_encontrado()) }
+}
+
+#[tauri::command]
+pub async fn guardar_archivo(app: AppHandle, ruta: String) -> Result<PathBuf, String> {
+    let ruta = de_klippo(&ruta)?;
+    tauri::async_runtime::spawn_blocking(move || compartir::guardar(&app, &ruta)).await.map_err(texto)?
+}
+
+#[tauri::command]
+pub fn copiar_archivo(ruta: String) -> Result<(), String> {
+    compartir::copiar(&de_klippo(&ruta)?)
+}
+
+#[tauri::command]
+pub fn whatsapp_archivo(app: AppHandle, ruta: String) -> Result<bool, String> {
+    compartir::whatsapp(&app, &de_klippo(&ruta)?)
+}
+
+#[tauri::command]
+pub fn compartir_archivo(app: AppHandle, ruta: String, titulo: String) -> Result<(), String> {
+    let ruta = de_klippo(&ruta)?;
+    let ventana = app.get_webview_window("main").ok_or_else(no_encontrado)?;
+    let hwnd = ventana.hwnd().map_err(texto)?.0 as isize;
+    compartir::compartir(hwnd, &ruta, &titulo).map_err(texto)
+}
+
+#[tauri::command]
+pub fn reproducir_archivo(app: AppHandle, ruta: String) -> Result<(), String> {
+    let ruta = de_klippo(&ruta)?;
+    app.opener().open_path(ruta.to_string_lossy(), None::<&str>).map_err(texto)
+}
+
+/// Abre el Explorador con el archivo seleccionado (también la copia guardada en Descargas)
+#[tauri::command]
+pub fn mostrar_archivo(app: AppHandle, ruta: String) -> Result<(), String> {
+    let ruta = PathBuf::from(ruta);
+    if !ruta.is_file() {
+        return Err(no_encontrado());
+    }
+    app.opener().reveal_item_in_dir(ruta).map_err(texto)
 }

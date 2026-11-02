@@ -71,8 +71,16 @@ pub fn archivo_final(carpeta: &Path) -> Option<PathBuf> {
 /// Borra lo que tenga más de `edad_maxima`, salvo las descargas en curso.
 /// Cada carpeta de descarga se trata como un bloque: se borra entera o no se toca.
 pub fn limpiar(activas: &HashSet<String>, edad_maxima: Duration) {
-    let Ok(entradas) = fs::read_dir(carpeta_descargas()) else { return };
     let limite = SystemTime::now() - edad_maxima;
+    // Vídeos exportados por el editor: archivo a archivo
+    if let Ok(exportados) = fs::read_dir(crate::edicion::carpeta()) {
+        for archivo in exportados.flatten().map(|e| e.path()) {
+            if ultima_modificacion(&archivo).is_none_or(|t| t < limite) {
+                let _ = fs::remove_file(&archivo);
+            }
+        }
+    }
+    let Ok(entradas) = fs::read_dir(carpeta_descargas()) else { return };
     for carpeta in entradas.flatten().map(|e| e.path()) {
         let id = carpeta.file_name().and_then(|n| n.to_str()).unwrap_or_default();
         if activas.contains(id) {

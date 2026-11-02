@@ -4,6 +4,7 @@ mod cache;
 mod comandos;
 mod compartir;
 mod descargas;
+mod edicion;
 mod enlaces;
 mod entrada;
 mod formatos;
@@ -135,6 +136,14 @@ pub fn run() {
             comandos::copiar_descarga,
             comandos::whatsapp_descarga,
             comandos::compartir_descarga,
+            comandos::exportar,
+            comandos::cancelar_exportacion,
+            comandos::guardar_archivo,
+            comandos::copiar_archivo,
+            comandos::whatsapp_archivo,
+            comandos::compartir_archivo,
+            comandos::reproducir_archivo,
+            comandos::mostrar_archivo,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar Klippo");

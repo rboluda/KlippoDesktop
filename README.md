@@ -21,8 +21,8 @@
 Es la versión de escritorio de [Klippo para Android](https://github.com/rboluda/Klippo): la
 misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 
-> **En desarrollo.** Ya descarga, recibe los enlaces del navegador, guarda y comparte; el
-> editor llega en la próxima versión.
+> **En desarrollo.** Ya hace lo mismo que la app de Android salvo iniciar sesión en
+> Instagram, X y Facebook y los carruseles, que llegan en la próxima versión.
 
 ## Qué hace
 
@@ -48,10 +48,18 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 - Aviso de Windows al terminar cada descarga si Klippo no está delante, con WhatsApp, Copiar y
   Guardar.
 
+- **Editar** (pulsa la miniatura o el lápiz):
+  - Recortar arrastrando los tiradores o escribiendo el inicio y el fin a la décima, con vista
+    previa en bucle del tramo.
+  - Encuadre 9:16, 1:1, 4:5 o libre: mueve y ajusta el marco sobre el vídeo.
+  - Texto con contorno o con fondo, y emojis: se arrastran y cambian de tamaño con la rueda.
+  - Pixelar zonas fijas (caras, matrículas…) y quitar el sonido.
+  - Todo se aplica de una vez con FFmpeg en un vídeo H.264 + AAC, y lo compartes o guardas
+    desde la misma ventana.
+
 ## Qué hará
 
-- **Editar**: recortar con tiempo exacto, encuadre 9:16, 1:1, 4:5 o libre, texto, emojis,
-  pixelar zonas y quitar el sonido. Todo se aplica de una vez con FFmpeg.
+- Iniciar sesión en Instagram, X y Facebook para los vídeos que lo piden, y carruseles.
 
 ## Instalación
 

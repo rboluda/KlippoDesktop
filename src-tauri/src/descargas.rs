@@ -540,7 +540,7 @@ fn es_postproceso(linea: &str) -> bool {
 }
 
 /// Para el proceso y todos sus hijos (yt-dlp arranca Python, FFmpeg y Deno por debajo)
-fn matar(pid: u32) {
+pub fn matar(pid: u32) {
     let _ = motor::sin_ventana(Path::new("taskkill"))
         .args(["/T", "/F", "/PID", &pid.to_string()])
         .stdin(Stdio::null())
