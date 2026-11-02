@@ -5,6 +5,8 @@ use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::cache;
+use crate::entrada::{self, Entrada};
+use crate::{enlaces, marcador, Arranque};
 use crate::descargas::{Calidad, Descarga, Descargas};
 use crate::motor::{texto, ResultadoActualizacion, Versiones};
 use crate::traducir;
@@ -82,4 +84,34 @@ pub fn vaciar_cache(descargas: Gestor) {
 
 fn no_encontrado() -> String {
     traducir("No se encontró el vídeo descargado", "The downloaded video could not be found")
+}
+
+// ---- Del navegador a Klippo ----
+
+/// El enlace que haya en el portapapeles (para el botón Pegar, Ctrl+V y al volver a Klippo)
+#[tauri::command]
+pub fn enlace_del_portapapeles() -> Option<String> {
+    entrada::leer_portapapeles().and_then(|texto| enlaces::extraer_url(&texto))
+}
+
+/// Enlace llegado por el marcador o por un aviso que espera a que se elija la calidad
+#[tauri::command]
+pub fn tomar_enlace_pendiente(entrada: State<Entrada>) -> Option<String> {
+    entrada.tomar_pendiente()
+}
+
+#[tauri::command]
+pub fn instalar_marcador(app: AppHandle) -> Result<(), String> {
+    marcador::abrir_pagina(&app)
+}
+
+#[tauri::command]
+pub fn codigo_marcador() -> &'static str {
+    marcador::CODIGO
+}
+
+/// Klippo arrancó con Windows: se queda en la bandeja sin enseñar la ventana
+#[tauri::command]
+pub fn arranque_oculto(arranque: State<Arranque>) -> bool {
+    arranque.oculto
 }

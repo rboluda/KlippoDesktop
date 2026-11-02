@@ -1,7 +1,10 @@
 <script lang="ts">
   import "../app.css";
   import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { comprobarAlAbrir } from "$lib/actualizacion.svelte";
   import AvisoActualizacion from "$lib/AvisoActualizacion.svelte";
@@ -13,13 +16,29 @@
 
   onMount(() => {
     document.documentElement.lang = idioma;
-    // La ventana nace oculta para no destellar en blanco: se enseña ya con el tema puesto
-    const ventana = getCurrentWindow();
-    ventana.show().then(() => ventana.setFocus());
+    // La ventana nace oculta para no destellar en blanco: se enseña ya con el tema puesto.
+    // Si Klippo arrancó con Windows, se queda en la bandeja.
+    invoke<boolean>("arranque_oculto").then((oculto) => {
+      if (oculto) return;
+      const ventana = getCurrentWindow();
+      ventana.show().then(() => ventana.setFocus());
+    });
     empezarAEscuchar();
     comprobarAlAbrir();
+    // Un enlace del marcador o de un aviso se atiende en Inicio, aunque se esté en Ajustes
+    const quitar = listen("enlace-pendiente", () => {
+      if (page.url.pathname !== "/") goto("/");
+    });
+    return () => quitar.then((f) => f());
   });
+
+  // Soltar un archivo en la ventana haría que la página lo abriera en lugar de Klippo
+  function noAbrirArchivos(evento: DragEvent) {
+    if (evento.dataTransfer?.types.includes("Files")) evento.preventDefault();
+  }
 </script>
+
+<svelte:window ondragover={noAbrirArchivos} ondrop={noAbrirArchivos} />
 
 <div class="app">
   <header>

@@ -1,10 +1,13 @@
 <!-- Inicio: campo del enlace y, debajo, los vídeos descargados -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { guardar, leer } from "$lib/ajustes";
   import DialogoCalidad from "$lib/DialogoCalidad.svelte";
   import { descargar, descargas, type Calidad } from "$lib/descargas.svelte";
-  import { extraerUrl } from "$lib/enlaces";
+  import { esSoportada, extraerUrl } from "$lib/enlaces";
   import Icono from "$lib/Icono.svelte";
   import { t } from "$lib/i18n";
   import TarjetaDescarga from "$lib/TarjetaDescarga.svelte";
@@ -15,18 +18,99 @@
   /** Enlace esperando a que se elija la calidad */
   let pendiente = $state<string | null>(null);
   let calidadMarcada = $state<Calidad>("mejor");
+  /** Arrastrando un enlace sobre la ventana */
+  let arrastrando = $state(false);
+  /** El último enlace puesto solo en el campo: no se vuelve a poner si el usuario lo borra */
+  let ultimoAutorrelleno = "";
 
-  onMount(async () => {
-    vista = await leer("vista", "lista");
+  onMount(() => {
+    leer<"lista" | "mosaico">("vista", "lista").then((v) => (vista = v));
+    tomarPendiente();
+    autorrellenar();
+    const quitar = [
+      // Copiado con Klippo delante: al campo
+      listen<string>("enlace-copiado", (e) => ponerEnlace(e.payload)),
+      // Llegado por el marcador o por el botón Descargar de un aviso
+      listen("enlace-pendiente", tomarPendiente),
+      // Al volver a Klippo, lo que haya en el portapapeles (como en Android)
+      getCurrentWindow().onFocusChanged(({ payload: enfocada }) => enfocada && autorrellenar()),
+    ];
+    return () => quitar.forEach((p) => p.then((f) => f()));
   });
 
-  async function pedirDescarga(evento: SubmitEvent) {
+  function ponerEnlace(url: string) {
+    // No se pisa lo que el usuario esté escribiendo
+    if (enlace.trim() && !extraerUrl(enlace)) return;
+    enlace = url;
+    error = "";
+  }
+
+  async function autorrellenar() {
+    if (enlace.trim() || pendiente) return;
+    const url = await invoke<string | null>("enlace_del_portapapeles");
+    if (!url || !esSoportada(url) || url === ultimoAutorrelleno) return;
+    if (descargas.lista.some((d) => d.url === url)) return;
+    ultimoAutorrelleno = url;
+    ponerEnlace(url);
+  }
+
+  async function tomarPendiente() {
+    const url = await invoke<string | null>("tomar_enlace_pendiente");
+    if (!url) return;
+    enlace = url;
+    // Los enlaces de otras webs se quedan en el campo para que el usuario decida
+    if (esSoportada(url)) pedir(url);
+  }
+
+  async function pegar() {
+    const url = await invoke<string | null>("enlace_del_portapapeles");
+    if (url) ponerEnlace(url);
+  }
+
+  // Ctrl+V fuera del campo: pegar y descargar de una vez
+  async function alPulsarTecla(evento: KeyboardEvent) {
+    const enCampo = evento.target instanceof HTMLInputElement || evento.target instanceof HTMLSelectElement;
+    if (!evento.ctrlKey || evento.key.toLowerCase() !== "v" || enCampo || pendiente) return;
+    evento.preventDefault();
+    const url = await invoke<string | null>("enlace_del_portapapeles");
+    if (url) {
+      enlace = url;
+      pedir(url);
+    }
+  }
+
+  // Arrastrar la pestaña o un enlace desde el navegador hasta la ventana
+  function alArrastrar(evento: DragEvent) {
+    const tipos = evento.dataTransfer?.types ?? [];
+    if (tipos.includes("text/uri-list") || tipos.includes("text/plain")) {
+      evento.preventDefault();
+      arrastrando = true;
+    }
+  }
+
+  function alSoltar(evento: DragEvent) {
+    evento.preventDefault();
+    arrastrando = false;
+    const datos = evento.dataTransfer;
+    const url = extraerUrl(datos?.getData("text/uri-list") || datos?.getData("text/plain"));
+    if (url) {
+      enlace = url;
+      pedir(url);
+    }
+  }
+
+  function pedirDescarga(evento: SubmitEvent) {
     evento.preventDefault();
     const url = extraerUrl(enlace);
     if (!url) {
       error = t.noEsEnlace;
       return;
     }
+    pedir(url);
+  }
+
+  async function pedir(url: string) {
+    error = "";
     calidadMarcada = await leer<Calidad>("calidad", "mejor");
     if (await leer("preguntarCalidad", true)) {
       pendiente = url;
@@ -52,6 +136,20 @@
   }
 </script>
 
+<svelte:window
+  onkeydown={alPulsarTecla}
+  ondragover={alArrastrar}
+  ondragleave={(e) => e.relatedTarget === null && (arrastrando = false)}
+  ondrop={alSoltar}
+/>
+
+{#if arrastrando}
+  <div class="soltar" aria-hidden="true">
+    <Icono nombre="enlace" tamano={48} />
+    <p>{t.sueltaEnlace}</p>
+  </div>
+{/if}
+
 <form class="entrada" onsubmit={pedirDescarga}>
   <div class="campo" class:con-error={error}>
     <Icono nombre="enlace" />
@@ -73,6 +171,10 @@
         onclick={() => ((enlace = ""), (error = ""))}
       >
         <Icono nombre="cerrar" tamano={20} />
+      </button>
+    {:else}
+      <button type="button" class="boton-icono" title={t.pegar} aria-label={t.pegar} onclick={pegar}>
+        <Icono nombre="pegar" tamano={20} />
       </button>
     {/if}
   </div>
@@ -128,6 +230,24 @@
 {/if}
 
 <style>
+  .soltar {
+    position: fixed;
+    inset: 12px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border: 3px dashed var(--primary);
+    border-radius: 24px;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    color: var(--primary);
+    font-size: 1.2rem;
+    font-weight: 600;
+    pointer-events: none;
+  }
+
   .entrada {
     display: flex;
     gap: 12px;

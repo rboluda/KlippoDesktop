@@ -70,16 +70,7 @@ fn unir(opciones: Vec<String>) -> String {
 
 /// ¿Es un enlace de TikTok? (tiktok.com o cualquier subdominio, como vm.tiktok.com)
 pub fn es_tiktok(url: &str) -> bool {
-    host(url).is_some_and(|h| h == "tiktok.com" || h.ends_with(".tiktok.com"))
-}
-
-/// Dominio de una URL en minúsculas, sin usuario ni puerto
-pub fn host(url: &str) -> Option<String> {
-    let resto = url.trim().split_once("://")?.1;
-    let autoridad = resto.split(['/', '?', '#']).next()?;
-    let sin_usuario = autoridad.rsplit('@').next()?;
-    let sin_puerto = sin_usuario.split(':').next()?;
-    (!sin_puerto.is_empty()).then(|| sin_puerto.to_lowercase())
+    crate::enlaces::host(url).is_some_and(|h| h == "tiktok.com" || h.ends_with(".tiktok.com"))
 }
 
 #[cfg(test)]
@@ -134,6 +125,5 @@ mod pruebas {
         assert!(es_tiktok("https://vm.tiktok.com/ZM123/"));
         assert!(!es_tiktok("https://www.youtube.com/watch?v=tiktok.com"));
         assert!(!es_tiktok("https://notiktok.com/x"));
-        assert_eq!(host("HTTPS://user@Www.X.com:443/a"), Some("www.x.com".into()));
     }
 }

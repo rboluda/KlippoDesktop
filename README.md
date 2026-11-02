@@ -21,8 +21,8 @@
 Es la versión de escritorio de [Klippo para Android](https://github.com/rboluda/Klippo): la
 misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 
-> **En desarrollo.** Ya descarga; el editor, guardar y compartir, y el paso directo desde el
-> navegador llegan en las próximas versiones.
+> **En desarrollo.** Ya descarga y recibe los enlaces del navegador; el editor y guardar y
+> compartir llegan en las próximas versiones.
 
 ## Qué hace
 
@@ -33,10 +33,17 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 - Progreso con tiempo restante, cancelar, reintentar y, si una plataforma cambia, **Actualizar
   motor y reintentar** desde la propia tarjeta. Lista o mosaico con miniaturas.
 
+- **Del navegador a Klippo sin extensiones**, en Chrome, Edge, Opera, Firefox o cualquier otro:
+  - **Copia el enlace.** Si Klippo está delante, aparece en el campo; si está detrás o en la
+    bandeja, un aviso de Windows te ofrece descargarlo. Nunca descarga solo.
+  - **Marcador «Enviar a Klippo».** Un botón en la barra de marcadores que manda a Klippo el
+    vídeo de la pestaña con un clic (*Ajustes → Desde el navegador → Instalar*).
+  - O arrastra la pestaña hasta la ventana de Klippo, o pulsa Ctrl+V en ella.
+  - Con *Iniciar con Windows*, Klippo espera en la bandeja sin abrir la ventana.
+- Aviso de Windows al terminar cada descarga si Klippo no está delante.
+
 ## Qué hará
 
-- **Del navegador a Klippo sin extensiones**, en Chrome, Opera, Firefox o cualquier otro:
-  copias el enlace y Klippo te ofrece descargarlo, o pulsas el marcador *Enviar a Klippo*.
 - **Editar**: recortar con tiempo exacto, encuadre 9:16, 1:1, 4:5 o libre, texto, emojis,
   pixelar zonas y quitar el sonido. Todo se aplica de una vez con FFmpeg.
 - **Compartir**: copiar el vídeo para pegarlo en WhatsApp, Telegram o donde quieras,

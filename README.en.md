@@ -21,8 +21,8 @@
 This is the desktop version of [Klippo for Android](https://github.com/rboluda/Klippo): the
 same idea, the same colors and everything learned there about each platform.
 
-> **Work in progress.** It already downloads; the editor, saving and sharing, and the browser
-> hand-off arrive in the next versions.
+> **Work in progress.** It already downloads and receives links from the browser; the editor
+> and saving and sharing arrive in the next versions.
 
 ## What it does
 
@@ -34,10 +34,17 @@ same idea, the same colors and everything learned there about each platform.
 - Progress with time left, cancel, retry and, if a platform changes, **Update engine and
   retry** right from the card. List or grid with thumbnails.
 
+- **From the browser to Klippo without extensions**, in Chrome, Edge, Opera, Firefox or any other:
+  - **Copy the link.** If Klippo is in front, it appears in the field; if it's behind or in the
+    tray, a Windows notification offers to download it. It never downloads on its own.
+  - **“Send to Klippo” bookmark.** A button on the bookmarks bar that sends the tab's video to
+    Klippo in one click (*Settings → From the browser → Install*).
+  - Or drag the tab onto the Klippo window, or press Ctrl+V in it.
+  - With *Start with Windows*, Klippo waits in the tray without opening the window.
+- A Windows notification when each download finishes, if Klippo isn't in front.
+
 ## What it will do
 
-- **From the browser to Klippo without extensions**, in Chrome, Opera, Firefox or any other:
-  copy the link and Klippo offers to download it, or click the *Send to Klippo* bookmark.
 - **Edit**: trim to the exact time, crop to 9:16, 1:1, 4:5 or free, add text and emojis,
   pixelate areas and mute. Everything is applied at once with FFmpeg.
 - **Share**: copy the video to paste it into WhatsApp, Telegram or anywhere, drag it, or save

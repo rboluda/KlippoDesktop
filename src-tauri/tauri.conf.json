@@ -19,7 +19,8 @@
         "minWidth": 760,
         "minHeight": 520,
         "center": true,
-        "visible": false
+        "visible": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {
@@ -60,6 +61,11 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["klippo"]
+      }
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc3RDIzNjc5NjcyOTA0NUEKUldSYUJDbG5lVGJTZDlhUzhGdFRSMWplS1c3Uys4b3hRZm9GOE1xMDJWd1NISGM3YmJLSFk2ZGIK",
       "endpoints": [

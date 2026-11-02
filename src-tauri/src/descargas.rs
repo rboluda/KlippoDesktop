@@ -14,6 +14,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
+use crate::avisos;
 use crate::cache::{self, Meta};
 use crate::formatos;
 use crate::motor::{self, Motor};
@@ -292,6 +293,9 @@ impl Descargas {
             Err(Fallo::Error(mensaje)) => Estado::Fallida { mensaje },
         };
         let _ = fs::remove_dir_all(&carpeta);
+        if let Estado::Fallida { mensaje } = &estado {
+            avisos::descarga_fallida(&self.app, &descarga.url, mensaje);
+        }
         self.cambiar(id, |d| {
             d.estado = estado;
             d.progreso = None;
@@ -357,6 +361,9 @@ impl Descargas {
             d.archivo = Some(archivo.clone());
         });
         self.avisar();
+        if let Some(terminada) = self.buscar(&descarga.id) {
+            avisos::descarga_terminada(&self.app, &terminada);
+        }
         Ok(())
     }
 

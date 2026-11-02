@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { getVersion } from "@tauri-apps/api/app";
   import { invoke } from "@tauri-apps/api/core";
+  import * as autoarranque from "@tauri-apps/plugin-autostart";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { actualizacion, buscarAhora } from "$lib/actualizacion.svelte";
   import { guardar, leer } from "$lib/ajustes";
@@ -21,6 +22,9 @@
   let calidad = $state<Calidad>("mejor");
   let vista = $state<"lista" | "mosaico">("lista");
   let tamanoCache = $state(0);
+  let vigilarPortapapeles = $state(true);
+  let conWindows = $state(false);
+  let avisoMarcador = $state("");
 
   onMount(async () => {
     version = await getVersion();
@@ -28,8 +32,28 @@
     preguntarCalidad = await leer("preguntarCalidad", true);
     calidad = await leer<Calidad>("calidad", "mejor");
     vista = await leer("vista", "lista");
+    vigilarPortapapeles = await leer("vigilarPortapapeles", true);
+    conWindows = await autoarranque.isEnabled().catch(() => false);
     cargarVersiones();
   });
+
+  function cambiarVigilarPortapapeles() {
+    vigilarPortapapeles = !vigilarPortapapeles;
+    guardar("vigilarPortapapeles", vigilarPortapapeles);
+  }
+
+  async function cambiarConWindows() {
+    try {
+      await (conWindows ? autoarranque.disable() : autoarranque.enable());
+    } finally {
+      conWindows = await autoarranque.isEnabled().catch(() => false);
+    }
+  }
+
+  async function copiarCodigoMarcador() {
+    await navigator.clipboard.writeText(await invoke<string>("codigo_marcador"));
+    avisoMarcador = t.codigoCopiado;
+  }
 
   // El tamaño de la caché se vuelve a medir cada vez que cambia la lista de descargas
   $effect(() => {
@@ -92,6 +116,34 @@
           <option value="mosaico">{t.vistaMosaico}</option>
         </select>
       </label>
+    </div>
+  </section>
+
+  <section>
+    <h2>{t.navegador}</h2>
+    <div class="tarjeta">
+      <button class="fila" role="switch" aria-checked={vigilarPortapapeles} onclick={cambiarVigilarPortapapeles}>
+        <span class="textos">
+          <span class="titulo">{t.vigilarPortapapeles}</span>
+          <span class="detalle">{t.vigilarPortapapelesDetalle}</span>
+        </span>
+        <span class="interruptor" class:activo={vigilarPortapapeles}><span></span></span>
+      </button>
+      <button class="fila" role="switch" aria-checked={conWindows} onclick={cambiarConWindows}>
+        <span class="textos">
+          <span class="titulo">{t.iniciarConWindows}</span>
+          <span class="detalle">{t.iniciarConWindowsDetalle}</span>
+        </span>
+        <span class="interruptor" class:activo={conWindows}><span></span></span>
+      </button>
+      <div class="fila">
+        <span class="textos">
+          <span class="titulo">{t.marcador}</span>
+          <span class="detalle">{avisoMarcador || t.marcadorDetalle}</span>
+        </span>
+        <button class="boton texto" onclick={copiarCodigoMarcador}>{t.copiarCodigo}</button>
+        <button class="boton tonal" onclick={() => invoke("instalar_marcador")}>{t.instalar}</button>
+      </div>
     </div>
   </section>
 

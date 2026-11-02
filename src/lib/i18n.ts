@@ -53,6 +53,21 @@ const es = {
   errorActualizar: "Error al actualizar: {0}",
   cerrar: "Cerrar",
 
+  sueltaEnlace: "Suelta el enlace para descargarlo",
+
+  navegador: "Desde el navegador",
+  vigilarPortapapeles: "Ofrecer descargar los enlaces que copies",
+  vigilarPortapapelesDetalle:
+    "Con Klippo detrás o en la bandeja, al copiar un enlace de YouTube, TikTok, X, Instagram o Facebook te lo ofrece en un aviso. Nunca descarga solo.",
+  iniciarConWindows: "Iniciar con Windows",
+  iniciarConWindowsDetalle: "Klippo espera en la bandeja para ofrecerte los enlaces que copies",
+  marcador: "Marcador «Enviar a Klippo»",
+  marcadorDetalle:
+    "Un botón en la barra de marcadores que manda a Klippo el vídeo de la pestaña. Funciona en Chrome, Edge, Opera y Firefox.",
+  instalar: "Instalar",
+  copiarCodigo: "Copiar código",
+  codigoCopiado: "Código copiado: crea un marcador y pégalo como dirección",
+
   descargas: "Descargas",
   preguntarCalidad: "Preguntar la calidad en cada vídeo",
   preguntarCalidadDetalle: "Si lo apagas, se descarga directamente con la calidad de abajo",
@@ -132,6 +147,21 @@ const en: typeof es = {
   descargandoActualizacion: "Downloading update… {0} %",
   errorActualizar: "Update failed: {0}",
   cerrar: "Close",
+
+  sueltaEnlace: "Drop the link to download it",
+
+  navegador: "From the browser",
+  vigilarPortapapeles: "Offer to download the links you copy",
+  vigilarPortapapelesDetalle:
+    "With Klippo in the background or in the tray, copying a YouTube, TikTok, X, Instagram or Facebook link shows an offer. It never downloads on its own.",
+  iniciarConWindows: "Start with Windows",
+  iniciarConWindowsDetalle: "Klippo waits in the tray to offer you the links you copy",
+  marcador: "“Send to Klippo” bookmark",
+  marcadorDetalle:
+    "A button on the bookmarks bar that sends the tab's video to Klippo. Works in Chrome, Edge, Opera and Firefox.",
+  instalar: "Install",
+  copiarCodigo: "Copy code",
+  codigoCopiado: "Code copied: create a bookmark and paste it as the address",
 
   descargas: "Downloads",
   preguntarCalidad: "Ask for the quality on every video",
