@@ -2,15 +2,21 @@
 <script lang="ts">
   import { convertFileSrc } from "@tauri-apps/api/core";
   import {
+    arrastrarFuera,
     cancelar,
+    compartir,
+    copiar,
     eliminar,
     estaActiva,
     formatearDuracion,
+    guardar,
     mostrarEnCarpeta,
+    mostrarGuardado,
     pideSesion,
     reintentar,
     reproducir,
     resumirError,
+    whatsapp,
     type Descarga,
   } from "./descargas.svelte";
   import { plataforma } from "./enlaces";
@@ -21,6 +27,17 @@
   let { descarga, mosaico = false }: { descarga: Descarga; mosaico?: boolean } = $props();
 
   let errorCompleto = $state(false);
+  let menuAbierto = $state(false);
+
+  function elegir(accion: () => void) {
+    menuAbierto = false;
+    accion();
+  }
+
+  // El menú se cierra al pulsar en cualquier otro sitio
+  function cerrarMenuFuera(evento: MouseEvent) {
+    if (menuAbierto && !(evento.target as Element).closest(".menu-contenedor")) menuAbierto = false;
+  }
 
   const activa = $derived(estaActiva(descarga));
   const completada = $derived(descarga.estado.tipo === "completada");
@@ -56,8 +73,18 @@
   }
 </script>
 
+<svelte:window onclick={cerrarMenuFuera} />
+
 <article class="tarjeta" class:mosaico class:fallida={descarga.estado.tipo === "fallida"}>
-  <button class="miniatura" onclick={abrir} disabled={!completada} title={completada ? t.reproducir : undefined}>
+  <!-- La miniatura se puede arrastrar fuera de Klippo como si fuera el archivo -->
+  <button
+    class="miniatura"
+    onclick={abrir}
+    disabled={!completada}
+    draggable={completada}
+    ondragstart={(e) => arrastrarFuera(e, descarga)}
+    title={completada ? `${t.reproducir} · ${t.arrastrar}` : undefined}
+  >
     {#if descarga.miniatura}
       <img src={convertFileSrc(descarga.miniatura)} alt="" loading="lazy" />
     {:else}
@@ -97,25 +124,61 @@
       </button>
     {:else}
       {#if completada}
-        <button class="boton-icono" title={t.reproducir} aria-label={t.reproducir} onclick={abrir}>
-          <Icono nombre="reproducir" tamano={20} />
+        <button class="boton-icono" title={t.whatsapp} aria-label={t.whatsapp} onclick={() => whatsapp(descarga)}>
+          <Icono nombre="whatsapp" tamano={20} />
         </button>
-        <button
-          class="boton-icono"
-          title={t.mostrarEnCarpeta}
-          aria-label={t.mostrarEnCarpeta}
-          onclick={() => mostrarEnCarpeta(descarga.id)}
-        >
-          <Icono nombre="carpeta" tamano={20} />
+        <button class="boton-icono" title={t.compartir} aria-label={t.compartir} onclick={() => compartir(descarga)}>
+          <Icono nombre="compartir" tamano={20} />
         </button>
+        <button class="boton-icono" title={t.copiar} aria-label={t.copiar} onclick={() => copiar(descarga)}>
+          <Icono nombre="copiar" tamano={20} />
+        </button>
+        {#if descarga.guardado}
+          <button
+            class="boton-icono hecho"
+            title={t.verGuardado}
+            aria-label={t.verGuardado}
+            onclick={() => mostrarGuardado(descarga.id)}
+          >
+            <Icono nombre="hecho" tamano={20} />
+          </button>
+        {:else}
+          <button class="boton-icono" title={t.guardar} aria-label={t.guardar} onclick={() => guardar(descarga)}>
+            <Icono nombre="guardar" tamano={20} />
+          </button>
+        {/if}
+        <div class="menu-contenedor">
+          <button
+            class="boton-icono"
+            title={t.mas}
+            aria-label={t.mas}
+            aria-expanded={menuAbierto}
+            onclick={() => (menuAbierto = !menuAbierto)}
+          >
+            <Icono nombre="mas" tamano={20} />
+          </button>
+          {#if menuAbierto}
+            <div class="menu" role="menu">
+              <button role="menuitem" onclick={() => elegir(abrir)}>
+                <Icono nombre="reproducir" tamano={20} />{t.reproducir}
+              </button>
+              <button role="menuitem" onclick={() => elegir(() => mostrarEnCarpeta(descarga.id))}>
+                <Icono nombre="carpeta" tamano={20} />{t.mostrarEnCarpeta}
+              </button>
+              <button role="menuitem" onclick={() => elegir(() => eliminar(descarga.id))}>
+                <Icono nombre="eliminar" tamano={20} />{t.eliminar}
+              </button>
+            </div>
+          {/if}
+        </div>
       {:else}
         <button class="boton-icono" title={t.reintentar} aria-label={t.reintentar} onclick={() => reintentar(descarga.id)}>
           <Icono nombre="reintentar" tamano={20} />
         </button>
+        <button class="boton-icono" title={t.eliminar} aria-label={t.eliminar} onclick={() => eliminar(descarga.id)}>
+          <Icono nombre="eliminar" tamano={20} />
+        </button>
       {/if}
-      <button class="boton-icono" title={t.eliminar} aria-label={t.eliminar} onclick={() => eliminar(descarga.id)}>
-        <Icono nombre="eliminar" tamano={20} />
-      </button>
     {/if}
   </div>
 
@@ -264,6 +327,43 @@
     grid-area: acciones;
     display: flex;
     align-items: center;
+  }
+
+  .hecho {
+    color: var(--primary);
+  }
+
+  .menu-contenedor {
+    position: relative;
+  }
+
+  .menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 5;
+    min-width: 220px;
+    padding: 8px 0;
+    border-radius: 4px;
+    background: var(--surface-container);
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+  }
+
+  .menu button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .menu button:hover {
+    background: color-mix(in srgb, var(--on-surface) 8%, transparent);
   }
 
   .actualizar {

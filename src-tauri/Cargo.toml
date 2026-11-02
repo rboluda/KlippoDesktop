@@ -30,6 +30,12 @@ clipboard-win = "5.4.3"
 tauri-winrt-notification = "0.8.1"
 tauri-plugin-deep-link = "2.6.3"
 tauri-plugin-autostart = "2.7.0"
+windows = { version = "0.62", features = ["ApplicationModel_DataTransfer", "Storage", "Storage_Streams", "Foundation", "Foundation_Collections", "Win32_UI_Shell", "Win32_Foundation"] }
+windows-collections = "0.3"
+windows-future = "0.3"
+windows-registry = "0.6"
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+tauri-plugin-drag = "2.1.1"
 
 # Tamaño mínimo del ejecutable (https://tauri.app/concept/size/)
 [profile.release]

@@ -1,9 +1,14 @@
 // Avisos de Windows (notificaciones): enlace copiado, descarga empezada, terminada o fallida.
 // Solo salen cuando Klippo no está delante; al pulsarlos, Klippo se abre.
-use tauri::{AppHandle, Emitter};
+use std::path::Path;
+use std::sync::Arc;
+
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_opener::OpenerExt;
 use tauri_winrt_notification::{IconCrop, Toast};
 
-use crate::descargas::Descarga;
+use crate::compartir;
+use crate::descargas::{Descarga, Descargas};
 use crate::entrada::{pedir_descarga, ventana_delante};
 use crate::{mostrar_ventana, traducir};
 
@@ -42,6 +47,7 @@ pub fn descargando(app: &AppHandle, url: &str) {
     mostrar(app, &traducir("Descargando en Klippo…", "Downloading in Klippo…"), url, None);
 }
 
+/// Como en Android: WhatsApp · Copiar · Guardar en el propio aviso
 pub fn descarga_terminada(app: &AppHandle, descarga: &Descarga) {
     if ventana_delante(app) {
         return;
@@ -52,7 +58,67 @@ pub fn descarga_terminada(app: &AppHandle, descarga: &Descarga) {
         traducir("Vídeo descargado", "Video downloaded")
     };
     let texto = descarga.titulo.clone().unwrap_or_else(|| descarga.url.clone());
-    mostrar(app, &titulo, &texto, descarga.miniatura.as_deref());
+    let app_aviso = app.clone();
+    let id = descarga.id.clone();
+    let mut aviso = Toast::new(&id_app(app))
+        .title(&titulo)
+        .text1(&texto)
+        .add_button("WhatsApp", "whatsapp")
+        .add_button(&traducir("Copiar", "Copy"), "copiar")
+        .add_button(&traducir("Guardar", "Save"), "guardar")
+        .on_activated(move |accion| {
+            accion_sobre_descarga(&app_aviso, &id, accion.as_deref());
+            Ok(())
+        });
+    if let Some(miniatura) = descarga.miniatura.as_deref() {
+        aviso = aviso.icon(miniatura, IconCrop::Square, "");
+    }
+    let _ = aviso.show();
+}
+
+fn accion_sobre_descarga(app: &AppHandle, id: &str, accion: Option<&str>) {
+    let descargas = app.state::<Arc<Descargas>>();
+    let archivo = descargas.archivo(id);
+    let resultado = match (accion, archivo) {
+        (Some("whatsapp"), Some(archivo)) => compartir::whatsapp(app, &archivo).map(|_| {
+            mostrar(
+                app,
+                &traducir("Vídeo copiado", "Video copied"),
+                &traducir("Elige el chat en WhatsApp y pulsa Ctrl+V", "Pick the chat in WhatsApp and press Ctrl+V"),
+                None,
+            )
+        }),
+        (Some("copiar"), Some(archivo)) => compartir::copiar(&archivo).map(|_| {
+            mostrar(
+                app,
+                &traducir("Vídeo copiado", "Video copied"),
+                &traducir("Pégalo con Ctrl+V donde quieras", "Paste it anywhere with Ctrl+V"),
+                None,
+            )
+        }),
+        (Some("guardar"), Some(_)) => descargas.guardar(id).map(|ruta| guardado(app, &ruta)),
+        _ => {
+            mostrar_ventana(app);
+            Ok(())
+        }
+    };
+    if let Err(error) = resultado {
+        mostrar(app, &traducir("No se pudo hacer", "Something went wrong"), &error, None);
+    }
+}
+
+/// "Guardado en Descargas\Klippo"; al pulsarlo, el Explorador con el archivo
+fn guardado(app: &AppHandle, ruta: &Path) {
+    let app_aviso = app.clone();
+    let ruta_aviso = ruta.to_path_buf();
+    let _ = Toast::new(&id_app(app))
+        .title(&traducir(r"Guardado en Descargas\Klippo", r"Saved to Downloads\Klippo"))
+        .text1(&ruta.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
+        .on_activated(move |_| {
+            let _ = app_aviso.opener().reveal_item_in_dir(&ruta_aviso);
+            Ok(())
+        })
+        .show();
 }
 
 pub fn descarga_fallida(app: &AppHandle, url: &str, mensaje: &str) {

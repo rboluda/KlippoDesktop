@@ -21,8 +21,8 @@
 Es la versión de escritorio de [Klippo para Android](https://github.com/rboluda/Klippo): la
 misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 
-> **En desarrollo.** Ya descarga y recibe los enlaces del navegador; el editor y guardar y
-> compartir llegan en las próximas versiones.
+> **En desarrollo.** Ya descarga, recibe los enlaces del navegador, guarda y comparte; el
+> editor llega en la próxima versión.
 
 ## Qué hace
 
@@ -40,14 +40,18 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
     vídeo de la pestaña con un clic (*Ajustes → Desde el navegador → Instalar*).
   - O arrastra la pestaña hasta la ventana de Klippo, o pulsa Ctrl+V en ella.
   - Con *Iniciar con Windows*, Klippo espera en la bandeja sin abrir la ventana.
-- Aviso de Windows al terminar cada descarga si Klippo no está delante.
+- **Compartir** desde cada vídeo: WhatsApp (copia el vídeo y abre WhatsApp: eliges el chat y
+  pulsas Ctrl+V), el menú Compartir de Windows, Copiar (para pegarlo donde quieras) o
+  arrastrar la miniatura a otra app o a una carpeta.
+- **Guardar** crea `Descargas\Klippo\klippo_<fecha>.mp4` (o `.m4a` si es solo audio). Si no lo
+  pulsas, el vídeo nunca sale de la carpeta temporal de Klippo.
+- Aviso de Windows al terminar cada descarga si Klippo no está delante, con WhatsApp, Copiar y
+  Guardar.
 
 ## Qué hará
 
 - **Editar**: recortar con tiempo exacto, encuadre 9:16, 1:1, 4:5 o libre, texto, emojis,
   pixelar zonas y quitar el sonido. Todo se aplica de una vez con FFmpeg.
-- **Compartir**: copiar el vídeo para pegarlo en WhatsApp, Telegram o donde quieras,
-  arrastrarlo, o guardarlo en *Descargas\Klippo*. Si no lo guardas, desaparece a la hora.
 
 ## Instalación
 

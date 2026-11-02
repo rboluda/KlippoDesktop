@@ -2,6 +2,7 @@ mod avisos;
 mod bandeja;
 mod cache;
 mod comandos;
+mod compartir;
 mod descargas;
 mod enlaces;
 mod entrada;
@@ -61,6 +62,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_drag::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::Builder::new().arg(ARG_OCULTO).build())
@@ -128,6 +130,11 @@ pub fn run() {
             comandos::instalar_marcador,
             comandos::codigo_marcador,
             comandos::arranque_oculto,
+            comandos::guardar_descarga,
+            comandos::mostrar_guardado,
+            comandos::copiar_descarga,
+            comandos::whatsapp_descarga,
+            comandos::compartir_descarga,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar Klippo");

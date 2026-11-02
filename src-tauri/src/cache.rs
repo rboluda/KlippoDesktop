@@ -40,6 +40,9 @@ pub struct Meta {
     /// Se marca al terminar: una carpeta sin esto es una descarga que no acabó
     #[serde(default)]
     pub completada: bool,
+    /// Copia guardada en Descargas\Klippo, si el usuario la pidió
+    #[serde(default)]
+    pub guardado: Option<PathBuf>,
 }
 
 pub fn escribir_meta(carpeta: &Path, meta: &Meta) -> std::io::Result<()> {
@@ -123,6 +126,7 @@ mod pruebas {
             titulo: Some("Título con acentos ñ".into()),
             duracion: Some(12.5),
             completada: true,
+            guardado: None,
         };
         escribir_meta(&carpeta, &meta).unwrap();
         fs::write(carpeta.join("video.mp4"), b"12345").unwrap();

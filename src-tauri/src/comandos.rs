@@ -1,12 +1,13 @@
 // Órdenes que la interfaz puede pedir (invoke)
+use std::path::PathBuf;
 use std::sync::Arc;
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::cache;
 use crate::entrada::{self, Entrada};
-use crate::{enlaces, marcador, Arranque};
+use crate::{compartir, enlaces, marcador, Arranque};
 use crate::descargas::{Calidad, Descarga, Descargas};
 use crate::motor::{texto, ResultadoActualizacion, Versiones};
 use crate::traducir;
@@ -114,4 +115,44 @@ pub fn codigo_marcador() -> &'static str {
 #[tauri::command]
 pub fn arranque_oculto(arranque: State<Arranque>) -> bool {
     arranque.oculto
+}
+
+// ---- Guardar y compartir ----
+
+/// Copia en Descargas\Klippo; devuelve dónde quedó
+/// (async: copiar un vídeo grande no debe congelar la ventana)
+#[tauri::command]
+pub async fn guardar_descarga(descargas: Gestor<'_>, id: String) -> Result<PathBuf, String> {
+    let descargas = descargas.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || descargas.guardar(&id)).await.map_err(texto)?
+}
+
+/// Abre el Explorador con la copia guardada seleccionada
+#[tauri::command]
+pub fn mostrar_guardado(app: AppHandle, descargas: Gestor, id: String) -> Result<(), String> {
+    let guardado = descargas.buscar(&id).and_then(|d| d.guardado).ok_or_else(no_encontrado)?;
+    app.opener().reveal_item_in_dir(guardado).map_err(texto)
+}
+
+#[tauri::command]
+pub fn copiar_descarga(descargas: Gestor, id: String) -> Result<(), String> {
+    compartir::copiar(&descargas.archivo(&id).ok_or_else(no_encontrado)?)
+}
+
+/// Copia el vídeo y abre WhatsApp. true = la app de escritorio, false = WhatsApp Web
+#[tauri::command]
+pub fn whatsapp_descarga(app: AppHandle, descargas: Gestor, id: String) -> Result<bool, String> {
+    compartir::whatsapp(&app, &descargas.archivo(&id).ok_or_else(no_encontrado)?)
+}
+
+/// Menú Compartir de Windows. Las órdenes que no son async corren en el hilo de la ventana,
+/// que es donde Windows exige abrirlo.
+#[tauri::command]
+pub fn compartir_descarga(app: AppHandle, descargas: Gestor, id: String) -> Result<(), String> {
+    let descarga = descargas.buscar(&id).ok_or_else(no_encontrado)?;
+    let archivo = descargas.archivo(&id).ok_or_else(no_encontrado)?;
+    let titulo = descarga.titulo.unwrap_or_else(|| "Klippo".into());
+    let ventana = app.get_webview_window("main").ok_or_else(no_encontrado)?;
+    let hwnd = ventana.hwnd().map_err(texto)?.0 as isize;
+    compartir::compartir(hwnd, &archivo, &titulo).map_err(texto)
 }

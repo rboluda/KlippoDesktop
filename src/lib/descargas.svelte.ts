@@ -1,6 +1,9 @@
 // Lista de descargas: la lleva el lado de Rust y avisa de cada cambio con el evento "descargas"
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { startDrag } from "@crabnebula/tauri-plugin-drag";
+import { formato, t } from "./i18n";
+import { mostrarMensaje } from "./mensajes.svelte";
 
 export type Calidad = "mejor" | "p1080" | "p720" | "p480" | "audio";
 export const CALIDADES: Calidad[] = ["mejor", "p1080", "p720", "p480", "audio"];
@@ -29,6 +32,8 @@ export interface Descarga {
   /** Segundos */
   duracion: number | null;
   esAudio: boolean;
+  /** Copia en Descargas\Klippo, si se guardó */
+  guardado: string | null;
 }
 
 export const descargas = $state({ lista: [] as Descarga[] });
@@ -54,6 +59,48 @@ export const reintentar = (id: string) => invoke("reintentar_descarga", { id });
 export const eliminar = (id: string) => invoke("eliminar_descarga", { id });
 export const reproducir = (id: string) => invoke("reproducir", { id });
 export const mostrarEnCarpeta = (id: string) => invoke("mostrar_en_carpeta", { id });
+export const mostrarGuardado = (id: string) => invoke("mostrar_guardado", { id });
+
+// ---- Guardar y compartir: cada acción avisa con un mensaje de cómo ha ido ----
+
+async function intentar(accion: () => Promise<unknown>): Promise<void> {
+  try {
+    await accion();
+  } catch (e) {
+    mostrarMensaje({ texto: formato(t.noSePudo, String(e)) });
+  }
+}
+
+export const guardar = (d: Descarga) =>
+  intentar(async () => {
+    await invoke<string>("guardar_descarga", { id: d.id });
+    mostrarMensaje({ texto: t.guardado, accion: { texto: t.mostrar, hacer: () => mostrarGuardado(d.id) } });
+  });
+
+export const copiar = (d: Descarga) =>
+  intentar(async () => {
+    await invoke("copiar_descarga", { id: d.id });
+    mostrarMensaje({ texto: d.esAudio ? t.copiadoAudio : t.copiado });
+  });
+
+export const whatsapp = (d: Descarga) =>
+  intentar(async () => {
+    await invoke<boolean>("whatsapp_descarga", { id: d.id });
+    mostrarMensaje({ texto: t.whatsappAbierto });
+  });
+
+export const compartir = (d: Descarga) => intentar(() => invoke("compartir_descarga", { id: d.id }));
+
+/** Una imagen mínima para el arrastre cuando no hay miniatura (PNG transparente de 1×1) */
+const SIN_IMAGEN =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
+/** Arrastrar el archivo fuera de Klippo: a WhatsApp, a un correo, a una carpeta… */
+export function arrastrarFuera(evento: DragEvent, d: Descarga): void {
+  evento.preventDefault();
+  if (!d.archivo) return;
+  intentar(() => startDrag({ item: [d.archivo!], icon: d.miniatura ?? SIN_IMAGEN }));
+}
 
 /** 75 → "1:15"; 3725 → "1:02:05" */
 export function formatearDuracion(segundos: number): string {

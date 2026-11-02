@@ -16,6 +16,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::avisos;
 use crate::cache::{self, Meta};
+use crate::compartir;
 use crate::formatos;
 use crate::motor::{self, Motor};
 
@@ -87,6 +88,8 @@ pub struct Descarga {
     pub miniatura: Option<PathBuf>,
     pub duracion: Option<f64>,
     pub es_audio: bool,
+    /// Copia en Descargas\Klippo (si se guardó y sigue ahí)
+    pub guardado: Option<PathBuf>,
 }
 
 impl Descarga {
@@ -112,6 +115,7 @@ impl Descarga {
             archivo: Some(archivo),
             miniatura: miniatura.exists().then_some(miniatura),
             duracion: meta.duracion,
+            guardado: meta.guardado.filter(|g| g.exists()),
         })
     }
 }
@@ -208,6 +212,7 @@ impl Descargas {
             miniatura: None,
             duracion: None,
             es_audio: calidad.solo_audio(),
+            guardado: None,
         };
         self.lista.lock().unwrap().insert(0, descarga);
         self.avisar();
@@ -266,6 +271,29 @@ impl Descargas {
         self.lista.lock().unwrap().iter().find(|d| d.id == id).cloned()
     }
 
+    /// El vídeo (o audio) de una descarga completada
+    pub fn archivo(&self, id: &str) -> Option<PathBuf> {
+        self.buscar(id).and_then(|d| d.archivo).filter(|a| a.exists())
+    }
+
+    /// Guarda la copia en Descargas\Klippo (una sola vez: si ya está, devuelve esa)
+    pub fn guardar(&self, id: &str) -> Result<PathBuf, String> {
+        let descarga = self.buscar(id).ok_or_else(no_encontrada)?;
+        let carpeta = descarga.carpeta();
+        if let Some(guardado) = descarga.guardado.filter(|g| g.exists()) {
+            return Ok(guardado);
+        }
+        let archivo = descarga.archivo.filter(|a| a.exists()).ok_or_else(no_encontrada)?;
+        let destino = compartir::guardar(&self.app, &archivo)?;
+        if let Some(mut meta) = cache::leer_meta(&carpeta) {
+            meta.guardado = Some(destino.clone());
+            let _ = cache::escribir_meta(&carpeta, &meta);
+        }
+        self.cambiar(id, |d| d.guardado = Some(destino.clone()));
+        self.avisar();
+        Ok(destino)
+    }
+
     // ---- Trabajo de cada descarga ----
 
     fn lanzar(self: &Arc<Self>, id: String) {
@@ -314,6 +342,7 @@ impl Descargas {
             titulo: None,
             duracion: None,
             completada: false,
+            guardado: None,
         };
         cache::escribir_meta(carpeta, &meta)?;
 
@@ -566,6 +595,10 @@ fn crear_miniatura(motor: &Motor, video: &Path, destino: &Path) {
 
 fn es_audio(archivo: &Path) -> bool {
     archivo.extension().is_some_and(|e| e.eq_ignore_ascii_case("m4a"))
+}
+
+fn no_encontrada() -> String {
+    crate::traducir("No se encontró el vídeo descargado", "The downloaded video could not be found")
 }
 
 fn sin_archivo() -> Fallo {

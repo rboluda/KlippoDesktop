@@ -10,6 +10,7 @@
   import AvisoActualizacion from "$lib/AvisoActualizacion.svelte";
   import { empezarAEscuchar } from "$lib/descargas.svelte";
   import Icono from "$lib/Icono.svelte";
+  import Mensaje from "$lib/Mensaje.svelte";
   import { idioma, t } from "$lib/i18n";
 
   let { children } = $props();
@@ -60,6 +61,8 @@
       {@render children()}
     </div>
   </main>
+
+  <Mensaje />
 </div>
 
 <style>
