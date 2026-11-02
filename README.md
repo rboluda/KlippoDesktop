@@ -34,6 +34,8 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 - **Sesión opcional** en Instagram, X y Facebook para los vídeos que la piden
   (*Ajustes → Cuentas*, o el botón de la descarga fallida). Se abre la web oficial en una
   ventana; Klippo nunca ve tu contraseña y solo guarda las cookies, en tu equipo.
+- Tema claro, oscuro o el de Windows. Si el motor tiene más de un mes, Klippo sugiere
+  actualizarlo.
 - Progreso con tiempo restante, cancelar, reintentar y, si una plataforma cambia, **Actualizar
   motor y reintentar** desde la propia tarjeta. Lista o mosaico con miniaturas.
 

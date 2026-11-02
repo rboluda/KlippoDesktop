@@ -11,6 +11,8 @@
   import Icono from "$lib/Icono.svelte";
   import { t } from "$lib/i18n";
   import TarjetaDescarga from "$lib/TarjetaDescarga.svelte";
+  import { actualizarMotor, cargarVersiones, DIAS_MOTOR_ANTIGUO, diasMotor, motor } from "$lib/motor.svelte";
+  import { formato } from "$lib/i18n";
 
   let enlace = $state("");
   let error = $state("");
@@ -25,6 +27,7 @@
 
   onMount(() => {
     leer<"lista" | "mosaico">("vista", "lista").then((v) => (vista = v));
+    cargarVersiones();
     tomarPendiente();
     autorrellenar();
     const quitar = [
@@ -143,6 +146,15 @@
   ondrop={alSoltar}
 />
 
+{#if (diasMotor() ?? 0) > DIAS_MOTOR_ANTIGUO}
+  <div class="motor-antiguo">
+    <span>{formato(t.motorAntiguo, diasMotor() ?? 0)}</span>
+    <button class="boton texto" onclick={actualizarMotor} disabled={motor.actualizando}>
+      {motor.actualizando ? t.actualizandoMotor : t.actualizar}
+    </button>
+  </div>
+{/if}
+
 {#if arrastrando}
   <div class="soltar" aria-hidden="true">
     <Icono nombre="enlace" tamano={48} />
@@ -230,6 +242,15 @@
 {/if}
 
 <style>
+  .motor-antiguo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 4px 8px 16px;
+    font-size: 0.87rem;
+    color: var(--on-surface-variant);
+  }
+
   .soltar {
     position: fixed;
     inset: 12px;

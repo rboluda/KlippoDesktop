@@ -35,6 +35,8 @@ same idea, the same colors and everything learned there about each platform.
 - **Optional login** to Instagram, X and Facebook for videos that require it
   (*Settings → Accounts*, or the button on the failed download). The official website opens in
   a window; Klippo never sees your password and only keeps the cookies, on your computer.
+- Light, dark or Windows theme. If the engine is more than a month old, Klippo suggests
+  updating it.
 - Progress with time left, cancel, retry and, if a platform changes, **Update engine and
   retry** right from the card. List or grid with thumbnails.
 

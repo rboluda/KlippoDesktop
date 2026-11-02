@@ -12,6 +12,7 @@
   import Icono from "$lib/Icono.svelte";
   import Mensaje from "$lib/Mensaje.svelte";
   import { idioma, t } from "$lib/i18n";
+  import { iniciarTema } from "$lib/tema";
 
   let { children } = $props();
 
@@ -19,7 +20,7 @@
     document.documentElement.lang = idioma;
     // La ventana nace oculta para no destellar en blanco: se enseña ya con el tema puesto.
     // Si Klippo arrancó con Windows, se queda en la bandeja.
-    invoke<boolean>("arranque_oculto").then((oculto) => {
+    Promise.all([invoke<boolean>("arranque_oculto"), iniciarTema()]).then(([oculto]) => {
       if (oculto) return;
       const ventana = getCurrentWindow();
       ventana.show().then(() => ventana.setFocus());

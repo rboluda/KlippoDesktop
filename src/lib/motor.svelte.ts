@@ -17,6 +17,17 @@ export const motor = $state({
   mensaje: "",
 });
 
+/** Días desde la versión de yt-dlp (su número es la fecha: 2026.10.26) */
+export function diasMotor(): number | null {
+  const partes = motor.versiones?.["yt-dlp"].split(".").map(Number);
+  if (!partes || partes.length < 3 || partes.some(isNaN)) return null;
+  const fecha = new Date(partes[0], partes[1] - 1, partes[2]);
+  return Math.floor((Date.now() - fecha.getTime()) / 86_400_000);
+}
+
+/** Como en Android: a partir de un mes, se sugiere actualizar */
+export const DIAS_MOTOR_ANTIGUO = 30;
+
 export async function cargarVersiones(): Promise<void> {
   try {
     motor.versiones = await invoke<Versiones>("info_motor");

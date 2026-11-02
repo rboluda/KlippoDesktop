@@ -12,6 +12,16 @@
   import { formatearTamano, formato, nombreCalidad, t } from "$lib/i18n";
   import { actualizarMotor, cargarVersiones, motor } from "$lib/motor.svelte";
   import { cargarSesiones, cerrarSesion, iniciarSesion, sesiones } from "$lib/sesiones.svelte";
+  import { aplicarTema, type Tema } from "$lib/tema";
+
+  // Componentes libres en los que se apoya Klippo, con su licencia
+  const COMPONENTES = [
+    { nombre: "yt-dlp", licencia: "Unlicense", url: "https://github.com/yt-dlp/yt-dlp" },
+    { nombre: "FFmpeg (gyan.dev)", licencia: "GPL-3.0", url: "https://www.gyan.dev/ffmpeg/builds/" },
+    { nombre: "Deno", licencia: "MIT", url: "https://deno.com" },
+    { nombre: "Tauri", licencia: "MIT / Apache 2.0", url: "https://tauri.app" },
+    { nombre: "Svelte", licencia: "MIT", url: "https://svelte.dev" },
+  ];
 
   const REPO = "https://github.com/rboluda/KlippoDesktop";
 
@@ -23,6 +33,7 @@
   let calidad = $state<Calidad>("mejor");
   let vista = $state<"lista" | "mosaico">("lista");
   let tamanoCache = $state(0);
+  let tema = $state<Tema>("sistema");
   let vigilarPortapapeles = $state(true);
   let conWindows = $state(false);
   let avisoMarcador = $state("");
@@ -34,6 +45,7 @@
     calidad = await leer<Calidad>("calidad", "mejor");
     vista = await leer("vista", "lista");
     vigilarPortapapeles = await leer("vigilarPortapapeles", true);
+    tema = await leer<Tema>("tema", "sistema");
     conWindows = await autoarranque.isEnabled().catch(() => false);
     cargarVersiones();
     cargarSesiones();
@@ -93,6 +105,26 @@
 </div>
 
 <div class="columna">
+  <section>
+    <h2>{t.apariencia}</h2>
+    <div class="tarjeta">
+      <label class="fila">
+        <span class="textos"><span class="titulo">{t.tema}</span></span>
+        <select
+          bind:value={tema}
+          onchange={() => {
+            guardar("tema", tema);
+            aplicarTema(tema);
+          }}
+        >
+          <option value="sistema">{t.temaSistema}</option>
+          <option value="claro">{t.temaClaro}</option>
+          <option value="oscuro">{t.temaOscuro}</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
   <section>
     <h2>{t.descargas}</h2>
     <div class="tarjeta">
@@ -235,6 +267,23 @@
         <p>{t.descripcion}</p>
         <p class="detalle">{t.principios}</p>
         <p class="detalle">{t.autor} · {t.licencia}</p>
+        <p class="detalle subtitulo">{t.softwareLibre}</p>
+        <ul class="componentes">
+          {#each COMPONENTES as c (c.nombre)}
+            <li>
+              <button class="enlace" onclick={() => openUrl(c.url)}>{c.nombre}</button>
+              <span class="detalle">{c.licencia}</span>
+            </li>
+          {/each}
+        </ul>
+        {#if motor.versiones}
+          <button
+            class="enlace"
+            onclick={() => openUrl(`https://ffmpeg.org/releases/ffmpeg-${motor.versiones!.ffmpeg}.tar.xz`)}
+          >
+            {formato(t.fuentesFfmpeg, motor.versiones.ffmpeg)}
+          </button>
+        {/if}
         <div class="enlaces">
           <button class="boton texto" onclick={() => openUrl(REPO)}>{t.codigo}</button>
           <button class="boton texto" onclick={() => openUrl("https://github.com/rboluda")}>{t.miGithub}</button>
@@ -293,6 +342,34 @@
 
   button.fila,
   label.fila {
+    cursor: pointer;
+  }
+
+  .subtitulo {
+    margin-top: 16px;
+    font-weight: 600;
+  }
+
+  .componentes {
+    margin: 4px 0 8px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .componentes li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+  }
+
+  .enlace {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
     cursor: pointer;
   }
 
