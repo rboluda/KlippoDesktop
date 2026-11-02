@@ -1,0 +1,35 @@
+[package]
+name = "klippo"
+version = "0.1.0"
+description = "Klippo para Windows: descarga, recorta y comparte vídeos"
+authors = ["rboluda"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/rboluda/KlippoDesktop"
+edition = "2024"
+
+[lib]
+# El sufijo _lib evita que la biblioteca choque con el ejecutable en Windows
+# (https://github.com/rust-lang/cargo/issues/8519)
+name = "klippo_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-store = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sys-locale = "0.3"
+
+# Tamaño mínimo del ejecutable (https://tauri.app/concept/size/)
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

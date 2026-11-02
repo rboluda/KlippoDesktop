@@ -1,0 +1,96 @@
+<p align="center">
+  <img src="docs/icono/klippo_redondeado.png" width="128" alt="Icono de Klippo">
+</p>
+
+<h1 align="center">Klippo para Windows</h1>
+
+<p align="center"><b>Español</b> · <a href="README.en.md">English</a></p>
+
+<p align="center">
+  <b>Descarga, recorta y comparte vídeos de YouTube, TikTok, X, Instagram y Facebook.</b><br>
+  Sin publicidad. Sin cuentas. Sin restos en tu disco.<br>
+  Los vídeos se borran solos: Klippo vacía su carpeta temporal cada hora.
+</p>
+
+<p align="center">
+  <a href="https://github.com/rboluda/KlippoDesktop/releases/latest"><b>⬇️ Descargar el instalador</b></a>
+</p>
+
+---
+
+Es la versión de escritorio de [Klippo para Android](https://github.com/rboluda/Klippo): la
+misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
+
+> **En desarrollo.** Esta primera versión instala Klippo, lo deja en la bandeja del sistema
+> y se actualiza sola. Las descargas, el editor y el paso directo desde el navegador llegan
+> en las próximas versiones.
+
+## Qué hará
+
+- **Descargar** de YouTube, TikTok, X, Instagram y Facebook con yt-dlp, en H.264 + AAC para
+  que el vídeo se vea y se comparta en cualquier sitio. Mejor calidad, 1080p, 720p, 480p o
+  solo audio.
+- **Del navegador a Klippo sin extensiones**, en Chrome, Opera, Firefox o cualquier otro:
+  copias el enlace y Klippo te ofrece descargarlo, o pulsas el marcador *Enviar a Klippo*.
+- **Editar**: recortar con tiempo exacto, encuadre 9:16, 1:1, 4:5 o libre, texto, emojis,
+  pixelar zonas y quitar el sonido. Todo se aplica de una vez con FFmpeg.
+- **Compartir**: copiar el vídeo para pegarlo en WhatsApp, Telegram o donde quieras,
+  arrastrarlo, o guardarlo en *Descargas\Klippo*. Si no lo guardas, desaparece a la hora.
+
+## Instalación
+
+1. Descarga `Klippo_…_x64-setup.exe` de la [última versión](https://github.com/rboluda/KlippoDesktop/releases/latest).
+2. Ábrelo. Se instala solo para tu usuario, sin pedir permisos de administrador.
+
+El instalador no está firmado con un certificado de pago, así que la primera vez Windows
+puede mostrar *«Windows protegió su PC»*: pulsa **Más información → Ejecutar de todas formas**.
+
+Requisitos: Windows 10 u 11 de 64 bits.
+
+## Actualizaciones
+
+Klippo mira una vez al día, al abrirse, si hay una versión nueva en este repositorio y te lo
+avisa arriba de la ventana. Pulsas **Actualizar** y se instala sola. También puedes buscarla
+en *Ajustes → Actualizaciones* o desactivar la comprobación. Las actualizaciones van firmadas:
+Klippo solo instala las que se han publicado aquí.
+
+## Privacidad
+
+Sin publicidad, sin analítica, sin cuentas ni pantallas de bienvenida. Klippo solo se conecta
+para descargar el vídeo que le pides, para actualizar el motor cuando tú lo pides y, una vez
+al día, para mirar si hay versión nueva (se puede desactivar).
+
+## Compilar
+
+Necesitas [Node.js](https://nodejs.org), [Rust](https://rustup.rs) y las herramientas de C++
+de Visual Studio (carga *Desarrollo para el escritorio con C++*).
+
+```bash
+npm install
+npm run tauri dev      # para probar
+npm run tauri build    # instalador en src-tauri/target/release/bundle/nsis
+```
+
+Los iconos salen de `docs/icono/klipo_icon.png` con `python scripts/generar_iconos.py`
+(necesita Pillow). Las versiones se publican con `scripts/publicar.ps1`.
+
+Tecnología: [Tauri 2](https://tauri.app) (Rust) y [Svelte 5](https://svelte.dev) con
+TypeScript, sobre WebView2.
+
+## Créditos
+
+| Proyecto | Licencia |
+| --- | --- |
+| [Tauri](https://tauri.app) | MIT / Apache 2.0 |
+| [Svelte](https://svelte.dev) | MIT |
+
+## Licencia
+
+Klippo es software libre bajo la [GNU General Public License v3.0 o posterior](LICENSE)
+(GPL-3.0-or-later), como la versión de Android: puedes usarlo, estudiarlo, modificarlo y
+redistribuirlo, siempre que las versiones que distribuyas sigan siendo libres y con su
+código disponible.
+
+---
+
+<p align="center">Hecho por <a href="https://github.com/rboluda">rboluda</a></p>

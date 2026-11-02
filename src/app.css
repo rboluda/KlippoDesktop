@@ -1,0 +1,149 @@
+/* Colores de Klippo: los mismos esquemas claro y oscuro que la app de Android
+   (ui/theme/Color.kt), sacados del icono: degradado naranja → rojo y tijeras amarillas */
+:root {
+  --naranja-klippo: #fc9703;
+  --rojo-klippo: #fb2716;
+  --amarillo-klippo: #fcf905;
+
+  --primary: #c2410c;
+  --on-primary: #ffffff;
+  --primary-container: #ffdbcc;
+  --on-primary-container: #3a0b00;
+  --secondary-container: #ffe5d9;
+  --on-secondary-container: #341000;
+  --tertiary-container: #f9e64b;
+  --on-tertiary-container: #201c00;
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+  --on-error-container: #410002;
+  --surface: #fff8f5;
+  --on-surface: #231914;
+  --on-surface-variant: #53433c;
+  --outline: #85736b;
+  --outline-variant: #d8c2b9;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #fff1eb;
+  --surface-container: #fceae3;
+  --surface-container-high: #f6e4dd;
+  --surface-container-highest: #f0dfd8;
+
+  color-scheme: light dark;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--on-surface);
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #ffb596;
+    --on-primary: #5c1a00;
+    --primary-container: #9a3412;
+    --on-primary-container: #ffdbcc;
+    --secondary-container: #6e3823;
+    --on-secondary-container: #ffdbce;
+    --tertiary-container: #504700;
+    --on-tertiary-container: #f9e64b;
+    --error: #ffb4ab;
+    --error-container: #93000a;
+    --on-error-container: #ffdad6;
+    --surface: #1a110d;
+    --on-surface: #f1dfd8;
+    --on-surface-variant: #d8c2b9;
+    --outline: #a08d85;
+    --outline-variant: #53433c;
+    --surface-container-lowest: #140c09;
+    --surface-container-low: #231914;
+    --surface-container: #271d18;
+    --surface-container-high: #322722;
+    --surface-container-highest: #3d322d;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  user-select: none;
+  overflow: hidden;
+}
+
+a {
+  color: var(--primary);
+}
+
+input,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Botones al estilo Material 3 */
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 20px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.boton:disabled {
+  background: color-mix(in srgb, var(--on-surface) 12%, transparent);
+  color: color-mix(in srgb, var(--on-surface) 38%, transparent);
+  cursor: default;
+}
+
+.boton.tonal {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}
+
+.boton.texto {
+  background: transparent;
+  color: var(--primary);
+  padding: 0 12px;
+}
+
+.boton-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 20px;
+  background: transparent;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+}
+
+.boton-icono:hover,
+.boton.texto:hover {
+  background: color-mix(in srgb, var(--on-surface) 8%, transparent);
+}
+
+.boton:not(:disabled):not(.texto):hover {
+  filter: brightness(1.08);
+}
