@@ -1,12 +1,15 @@
-<!-- Ajustes: actualizaciones y Acerca de -->
+<!-- Ajustes: descargas, motor, almacenamiento, actualizaciones y Acerca de -->
 <script lang="ts">
   import { onMount } from "svelte";
   import { getVersion } from "@tauri-apps/api/app";
+  import { invoke } from "@tauri-apps/api/core";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { actualizacion, buscarAhora } from "$lib/actualizacion.svelte";
   import { guardar, leer } from "$lib/ajustes";
+  import { CALIDADES, descargas, type Calidad } from "$lib/descargas.svelte";
   import Icono from "$lib/Icono.svelte";
-  import { formato, t } from "$lib/i18n";
+  import { formatearTamano, formato, nombreCalidad, t } from "$lib/i18n";
+  import { actualizarMotor, cargarVersiones, motor } from "$lib/motor.svelte";
 
   const REPO = "https://github.com/rboluda/KlippoDesktop";
 
@@ -14,11 +17,30 @@
   let buscarAuto = $state(true);
   let buscando = $state(false);
   let resultado = $state("");
+  let preguntarCalidad = $state(true);
+  let calidad = $state<Calidad>("mejor");
+  let vista = $state<"lista" | "mosaico">("lista");
+  let tamanoCache = $state(0);
 
   onMount(async () => {
     version = await getVersion();
     buscarAuto = await leer("buscarActualizaciones", true);
+    preguntarCalidad = await leer("preguntarCalidad", true);
+    calidad = await leer<Calidad>("calidad", "mejor");
+    vista = await leer("vista", "lista");
+    cargarVersiones();
   });
+
+  // El tamaño de la caché se vuelve a medir cada vez que cambia la lista de descargas
+  $effect(() => {
+    void descargas.lista;
+    invoke<number>("tamano_cache").then((t) => (tamanoCache = t));
+  });
+
+  function cambiarPreguntarCalidad() {
+    preguntarCalidad = !preguntarCalidad;
+    guardar("preguntarCalidad", preguntarCalidad);
+  }
 
   function cambiarBuscarAuto() {
     buscarAuto = !buscarAuto;
@@ -45,6 +67,69 @@
 </div>
 
 <div class="columna">
+  <section>
+    <h2>{t.descargas}</h2>
+    <div class="tarjeta">
+      <button class="fila" role="switch" aria-checked={preguntarCalidad} onclick={cambiarPreguntarCalidad}>
+        <span class="textos">
+          <span class="titulo">{t.preguntarCalidad}</span>
+          <span class="detalle">{t.preguntarCalidadDetalle}</span>
+        </span>
+        <span class="interruptor" class:activo={preguntarCalidad}><span></span></span>
+      </button>
+      <label class="fila">
+        <span class="textos"><span class="titulo">{t.calidadMarcada}</span></span>
+        <select bind:value={calidad} onchange={() => guardar("calidad", calidad)}>
+          {#each CALIDADES as c (c)}
+            <option value={c}>{nombreCalidad(c)}</option>
+          {/each}
+        </select>
+      </label>
+      <label class="fila">
+        <span class="textos"><span class="titulo">{t.vista}</span></span>
+        <select bind:value={vista} onchange={() => guardar("vista", vista)}>
+          <option value="lista">{t.vistaLista}</option>
+          <option value="mosaico">{t.vistaMosaico}</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <section>
+    <h2>{t.motor}</h2>
+    <div class="tarjeta">
+      <div class="fila">
+        <span class="textos">
+          <span class="titulo">{t.motorDetalle}</span>
+          {#if motor.versiones}
+            <span class="detalle">
+              {formato(t.motorVersiones, motor.versiones["yt-dlp"], motor.versiones.ffmpeg, motor.versiones.deno)}
+            </span>
+          {/if}
+          {#if motor.mensaje}<span class="detalle">{motor.mensaje}</span>{/if}
+        </span>
+        <button class="boton tonal" onclick={actualizarMotor} disabled={motor.actualizando}>
+          {motor.actualizando ? t.actualizandoMotor : t.actualizar}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>{t.almacenamiento}</h2>
+    <div class="tarjeta">
+      <div class="fila">
+        <span class="textos">
+          <span class="titulo">{t.cache}</span>
+          <span class="detalle">{formato(t.cacheDetalle, formatearTamano(tamanoCache))}</span>
+        </span>
+        <button class="boton tonal" onclick={() => invoke("vaciar_cache")} disabled={tamanoCache === 0}>
+          {t.vaciar}
+        </button>
+      </div>
+    </div>
+  </section>
+
   <section>
     <h2>{t.actualizaciones}</h2>
     <div class="tarjeta">
@@ -132,7 +217,19 @@
     border-top: 1px solid var(--outline-variant);
   }
 
-  button.fila {
+  button.fila,
+  label.fila {
+    cursor: pointer;
+  }
+
+  select {
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    background: var(--surface-container-lowest);
+    color: var(--on-surface);
+    font: inherit;
     cursor: pointer;
   }
 

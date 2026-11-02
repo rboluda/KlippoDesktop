@@ -62,6 +62,9 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "No se pudo subir el cambio de versión" }
     }
 
+    # El motor (yt-dlp, Deno, FFmpeg) va dentro del instalador
+    & (Join-Path $PSScriptRoot "preparar-motor.ps1")
+
     # Firma del actualizador (la clave no tiene contraseña)
     $env:TAURI_SIGNING_PRIVATE_KEY = [IO.File]::ReadAllText($clave)
     npm run tauri build

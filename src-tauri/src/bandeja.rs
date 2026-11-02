@@ -3,16 +3,11 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::AppHandle;
 
-use crate::mostrar_ventana;
+use crate::{mostrar_ventana, traducir};
 
 pub fn crear(app: &AppHandle) -> tauri::Result<()> {
-    let (abrir, salir) = if en_ingles() {
-        ("Open Klippo", "Quit")
-    } else {
-        ("Abrir Klippo", "Salir")
-    };
-    let abrir = MenuItem::with_id(app, "abrir", abrir, true, None::<&str>)?;
-    let salir = MenuItem::with_id(app, "salir", salir, true, None::<&str>)?;
+    let abrir = MenuItem::with_id(app, "abrir", traducir("Abrir Klippo", "Open Klippo"), true, None::<&str>)?;
+    let salir = MenuItem::with_id(app, "salir", traducir("Salir", "Quit"), true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&abrir, &salir])?;
 
     let mut constructor = TrayIconBuilder::with_id("principal")
@@ -39,11 +34,4 @@ pub fn crear(app: &AppHandle) -> tauri::Result<()> {
     }
     constructor.build(app)?;
     Ok(())
-}
-
-/// Igual que en Android: inglés si el sistema está en inglés, español en cualquier otro caso
-fn en_ingles() -> bool {
-    sys_locale::get_locale()
-        .map(|idioma| idioma.to_lowercase().starts_with("en"))
-        .unwrap_or(false)
 }

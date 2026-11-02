@@ -1,8 +1,17 @@
 mod bandeja;
+mod cache;
+mod comandos;
+mod descargas;
+mod formatos;
+mod motor;
 
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
-use tauri::{AppHandle, Manager, WindowEvent};
+use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+
+use descargas::Descargas;
+use motor::Motor;
 
 /// Trae al frente la ventana principal (desde la bandeja o al abrir Klippo otra vez)
 pub fn mostrar_ventana(app: &AppHandle) {
@@ -13,9 +22,19 @@ pub fn mostrar_ventana(app: &AppHandle) {
     }
 }
 
+/// Igual que en Android: inglés si el sistema está en inglés, español en cualquier otro caso
+static EN_INGLES: LazyLock<bool> = LazyLock::new(|| {
+    sys_locale::get_locale().is_some_and(|idioma| idioma.to_lowercase().starts_with("en"))
+});
+
+/// Los pocos textos que salen de Rust (bandeja y algún error)
+pub fn traducir(es: &str, en: &str) -> String {
+    if *EN_INGLES { en } else { es }.to_string()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         // Tiene que ir el primero: si Klippo ya está abierto, la segunda copia se cierra
         // y la que estaba abierta pasa al frente
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -26,6 +45,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             bandeja::crear(app.handle())?;
+            let motor = Motor::preparar(app.handle());
+            app.manage(Descargas::new(app.handle().clone(), motor));
 
             // La ventana nace oculta y la interfaz la muestra cuando ya tiene los colores
             // puestos (sin destello blanco en el tema oscuro). Por si la interfaz fallara,
@@ -48,6 +69,27 @@ pub fn run() {
                 let _ = ventana.hide();
             }
         })
-        .run(tauri::generate_context!())
+        .invoke_handler(tauri::generate_handler![
+            comandos::listar_descargas,
+            comandos::descargar,
+            comandos::cancelar_descarga,
+            comandos::reintentar_descarga,
+            comandos::eliminar_descarga,
+            comandos::reproducir,
+            comandos::mostrar_en_carpeta,
+            comandos::info_motor,
+            comandos::actualizar_motor,
+            comandos::tamano_cache,
+            comandos::vaciar_cache,
+        ])
+        .build(tauri::generate_context!())
         .expect("no se pudo iniciar Klippo");
+
+    app.run(|app, evento| {
+        if let RunEvent::Exit = evento {
+            if let Some(descargas) = app.try_state::<Arc<Descargas>>() {
+                descargas.cancelar_todas();
+            }
+        }
+    });
 }

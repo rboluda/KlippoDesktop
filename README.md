@@ -21,15 +21,20 @@
 Es la versión de escritorio de [Klippo para Android](https://github.com/rboluda/Klippo): la
 misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 
-> **En desarrollo.** Esta primera versión instala Klippo, lo deja en la bandeja del sistema
-> y se actualiza sola. Las descargas, el editor y el paso directo desde el navegador llegan
-> en las próximas versiones.
+> **En desarrollo.** Ya descarga; el editor, guardar y compartir, y el paso directo desde el
+> navegador llegan en las próximas versiones.
+
+## Qué hace
+
+- **Descargar** de YouTube, TikTok, X, Instagram y Facebook (y muchas webs más) con yt-dlp, en
+  H.264 + AAC para que el vídeo se vea y se comparta en cualquier sitio. Eliges la calidad en
+  cada vídeo: mejor, 1080p, 720p, 480p o solo audio (M4A). En TikTok solo se usan formatos con
+  imagen y sonido juntos, y si un vídeo llega mudo Klippo lo vuelve a pedir con otro formato.
+- Progreso con tiempo restante, cancelar, reintentar y, si una plataforma cambia, **Actualizar
+  motor y reintentar** desde la propia tarjeta. Lista o mosaico con miniaturas.
 
 ## Qué hará
 
-- **Descargar** de YouTube, TikTok, X, Instagram y Facebook con yt-dlp, en H.264 + AAC para
-  que el vídeo se vea y se comparta en cualquier sitio. Mejor calidad, 1080p, 720p, 480p o
-  solo audio.
 - **Del navegador a Klippo sin extensiones**, en Chrome, Opera, Firefox o cualquier otro:
   copias el enlace y Klippo te ofrece descargarlo, o pulsas el marcador *Enviar a Klippo*.
 - **Editar**: recortar con tiempo exacto, encuadre 9:16, 1:1, 4:5 o libre, texto, emojis,
@@ -67,8 +72,9 @@ de Visual Studio (carga *Desarrollo para el escritorio con C++*).
 
 ```bash
 npm install
-npm run tauri dev      # para probar
-npm run tauri build    # instalador en src-tauri/target/release/bundle/nsis
+pwsh scripts/preparar-motor.ps1   # descarga yt-dlp, Deno y FFmpeg (versiones y huellas fijadas)
+npm run tauri dev                 # para probar
+npm run tauri build               # instalador en src-tauri/target/release/bundle/nsis
 ```
 
 Los iconos salen de `docs/icono/klipo_icon.png` con `python scripts/generar_iconos.py`
@@ -81,8 +87,16 @@ TypeScript, sobre WebView2.
 
 | Proyecto | Licencia |
 | --- | --- |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Unlicense |
+| [FFmpeg](https://ffmpeg.org) ([build de gyan.dev](https://www.gyan.dev/ffmpeg/builds/), con libx264) | GPL-3.0 |
+| [Deno](https://deno.com) | MIT |
 | [Tauri](https://tauri.app) | MIT / Apache 2.0 |
 | [Svelte](https://svelte.dev) | MIT |
+
+El código fuente de FFmpeg que acompaña a cada versión está en
+[ffmpeg.org/releases](https://ffmpeg.org/releases/) (la versión exacta figura en
+*Ajustes → Motor de descarga*), y el de cada biblioteca incluida, en
+[gyan.dev](https://www.gyan.dev/ffmpeg/builds/).
 
 ## Licencia
 

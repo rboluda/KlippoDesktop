@@ -5,6 +5,7 @@
   import { page } from "$app/state";
   import { comprobarAlAbrir } from "$lib/actualizacion.svelte";
   import AvisoActualizacion from "$lib/AvisoActualizacion.svelte";
+  import { empezarAEscuchar } from "$lib/descargas.svelte";
   import Icono from "$lib/Icono.svelte";
   import { idioma, t } from "$lib/i18n";
 
@@ -15,6 +16,7 @@
     // La ventana nace oculta para no destellar en blanco: se enseña ya con el tema puesto
     const ventana = getCurrentWindow();
     ventana.show().then(() => ventana.setFocus());
+    empezarAEscuchar();
     comprobarAlAbrir();
   });
 </script>
@@ -35,7 +37,9 @@
   <AvisoActualizacion />
 
   <main>
-    {@render children()}
+    <div class="contenido">
+      {@render children()}
+    </div>
   </main>
 </div>
 
@@ -72,5 +76,13 @@
     flex: 1;
     overflow-y: auto;
     padding: 8px 20px 24px;
+  }
+
+  /* En pantallas anchas el contenido no se estira de lado a lado */
+  header,
+  .contenido {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 </style>

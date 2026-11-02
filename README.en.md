@@ -21,13 +21,21 @@
 This is the desktop version of [Klippo for Android](https://github.com/rboluda/Klippo): the
 same idea, the same colors and everything learned there about each platform.
 
-> **Work in progress.** This first version installs Klippo, keeps it in the system tray and
-> updates itself. Downloads, the editor and the browser hand-off arrive in the next versions.
+> **Work in progress.** It already downloads; the editor, saving and sharing, and the browser
+> hand-off arrive in the next versions.
+
+## What it does
+
+- **Download** from YouTube, TikTok, X, Instagram and Facebook (and many more sites) with
+  yt-dlp, as H.264 + AAC so the video plays and shares anywhere. Pick the quality for each
+  video: best, 1080p, 720p, 480p or audio only (M4A). On TikTok only formats with picture and
+  sound together are used, and if a video arrives silent Klippo asks for it again in another
+  format.
+- Progress with time left, cancel, retry and, if a platform changes, **Update engine and
+  retry** right from the card. List or grid with thumbnails.
 
 ## What it will do
 
-- **Download** from YouTube, TikTok, X, Instagram and Facebook with yt-dlp, as H.264 + AAC so
-  the video plays and shares anywhere. Best quality, 1080p, 720p, 480p or audio only.
 - **From the browser to Klippo without extensions**, in Chrome, Opera, Firefox or any other:
   copy the link and Klippo offers to download it, or click the *Send to Klippo* bookmark.
 - **Edit**: trim to the exact time, crop to 9:16, 1:1, 4:5 or free, add text and emojis,
@@ -65,8 +73,9 @@ tools (*Desktop development with C++* workload).
 
 ```bash
 npm install
-npm run tauri dev      # to try it
-npm run tauri build    # installer in src-tauri/target/release/bundle/nsis
+pwsh scripts/preparar-motor.ps1   # downloads yt-dlp, Deno and FFmpeg (pinned versions and hashes)
+npm run tauri dev                 # to try it
+npm run tauri build               # installer in src-tauri/target/release/bundle/nsis
 ```
 
 Icons are generated from `docs/icono/klipo_icon.png` with `python scripts/generar_iconos.py`
@@ -79,8 +88,15 @@ TypeScript, on WebView2.
 
 | Project | License |
 | --- | --- |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Unlicense |
+| [FFmpeg](https://ffmpeg.org) ([gyan.dev build](https://www.gyan.dev/ffmpeg/builds/), with libx264) | GPL-3.0 |
+| [Deno](https://deno.com) | MIT |
 | [Tauri](https://tauri.app) | MIT / Apache 2.0 |
 | [Svelte](https://svelte.dev) | MIT |
+
+The FFmpeg source code for each version is at [ffmpeg.org/releases](https://ffmpeg.org/releases/)
+(the exact version is shown in *Settings → Download engine*), and the source of each bundled
+library at [gyan.dev](https://www.gyan.dev/ffmpeg/builds/).
 
 ## License
 

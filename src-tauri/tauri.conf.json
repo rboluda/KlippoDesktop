@@ -23,7 +23,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$TEMP/Klippo/**"]
+      }
     }
   },
   "bundle": {
@@ -40,6 +44,12 @@
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ],
+    "resources": {
+      "binarios/yt-dlp.exe": "binarios/yt-dlp.exe",
+      "binarios/deno.exe": "binarios/deno.exe",
+      "binarios/versiones.json": "binarios/versiones.json",
+      "binarios/ffmpeg/*": "binarios/ffmpeg/"
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser",
