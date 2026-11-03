@@ -69,8 +69,9 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 1. Descarga `Klippo_…_x64-setup.exe` de la [última versión](https://github.com/rboluda/KlippoDesktop/releases/latest).
 2. Ábrelo. Se instala solo para tu usuario, sin pedir permisos de administrador.
 
-El instalador no está firmado con un certificado de pago, así que la primera vez Windows
-puede mostrar *«Windows protegió su PC»*: pulsa **Más información → Ejecutar de todas formas**.
+El instalador va firmado con un certificado personal (rboluda), no con uno de pago de una
+autoridad pública, así que la primera vez Windows puede mostrar *«Windows protegió su PC»*:
+pulsa **Más información → Ejecutar de todas formas**.
 
 Requisitos: Windows 10 u 11 de 64 bits.
 

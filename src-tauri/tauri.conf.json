@@ -52,6 +52,7 @@
       "binarios/ffmpeg/*": "binarios/ffmpeg/"
     },
     "windows": {
+      "signCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/firmar.ps1 %1",
       "nsis": {
         "installMode": "currentUser",
         "languages": ["Spanish", "English"],
