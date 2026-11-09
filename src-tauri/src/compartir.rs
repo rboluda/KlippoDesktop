@@ -1,5 +1,5 @@
 // Guardar y compartir vídeos descargados (uno o los de una lista entera):
-// - Guardar: copia en Descargas\Klippo\klippo_<fecha>.mp4 (o .m4a); los de una lista, en
+// - Guardar: copia en Descargas\Klippo\<título>.mp4 (o .m4a, .mp3); los de una lista, en
 //   Descargas\Klippo\<lista>\<título>. Es lo único que sale de la carpeta temporal.
 // - Copiar: el archivo al portapapeles, para pegarlo con Ctrl+V en WhatsApp, Telegram, un
 //   correo o una carpeta.
@@ -21,30 +21,29 @@ use windows_collections::IIterable;
 
 use crate::motor::texto;
 
-/// Copia el archivo en Descargas\Klippo con un nombre que no pise nada
-pub fn guardar(app: &AppHandle, archivo: &Path) -> Result<PathBuf, String> {
+/// Copia el archivo en Descargas\Klippo con el título del vídeo como nombre (o
+/// klippo_<fecha> si no tiene título), sin pisar nada
+pub fn guardar(app: &AppHandle, archivo: &Path, titulo: Option<&str>) -> Result<PathBuf, String> {
     let carpeta = app.path().download_dir().map_err(texto)?.join("Klippo");
-    fs::create_dir_all(&carpeta).map_err(texto)?;
-    let fecha = chrono::Local::now().format("%Y%m%d_%H%M%S");
-    let extension = archivo.extension().and_then(|e| e.to_str()).unwrap_or("mp4");
-    let mut destino = carpeta.join(format!("klippo_{fecha}.{extension}"));
-    let mut n = 2;
-    while destino.exists() {
-        destino = carpeta.join(format!("klippo_{fecha}_{n}.{extension}"));
-        n += 1;
-    }
-    fs::copy(archivo, &destino).map_err(texto)?;
-    Ok(destino)
+    let nombre = titulo
+        .map(|t| nombre_valido(t, ""))
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(|| format!("klippo_{}", chrono::Local::now().format("%Y%m%d_%H%M%S")));
+    copiar_en(archivo, &carpeta, &nombre)
 }
 
-/// Copia el archivo en Descargas\Klippo\<carpeta>\<nombre>.<ext> (sin pisar nada: "nombre (2)")
+/// Copia el archivo en Descargas\Klippo\<carpeta>\<nombre>.<ext> (los de una lista)
 pub fn guardar_como(app: &AppHandle, archivo: &Path, carpeta: &str, nombre: &str) -> Result<PathBuf, String> {
     let carpeta = app.path().download_dir().map_err(texto)?.join("Klippo").join(nombre_valido(carpeta, "Klippo"));
-    fs::create_dir_all(&carpeta).map_err(texto)?;
-    let nombre = nombre_valido(nombre, "klippo");
+    copiar_en(archivo, &carpeta, &nombre_valido(nombre, "klippo"))
+}
+
+/// Copia `archivo` en `carpeta` como <nombre>.<ext>; si ya existe, «<nombre> (1)», « (2)»…
+fn copiar_en(archivo: &Path, carpeta: &Path, nombre: &str) -> Result<PathBuf, String> {
+    fs::create_dir_all(carpeta).map_err(texto)?;
     let extension = archivo.extension().and_then(|e| e.to_str()).unwrap_or("mp4");
     let mut destino = carpeta.join(format!("{nombre}.{extension}"));
-    let mut n = 2;
+    let mut n = 1;
     while destino.exists() {
         destino = carpeta.join(format!("{nombre} ({n}).{extension}"));
         n += 1;
@@ -53,17 +52,33 @@ pub fn guardar_como(app: &AppHandle, archivo: &Path, carpeta: &str, nombre: &str
     Ok(destino)
 }
 
-/// Nombre de archivo o carpeta válido en Windows: \ / : * ? " < > | pasan a espacios, sin
-/// espacios ni puntos al final y como mucho 100 caracteres
+/// Nombres que Windows reserva para dispositivos y no admite como archivo, con o sin extensión
+const RESERVADOS: [&str; 22] = [
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
+/// Nombre de archivo o carpeta válido en Windows (el mismo criterio que en Android):
+/// \ / : * ? " < > | y los caracteres de control pasan a espacios, se juntan los espacios, sin
+/// puntos ni espacios al principio ni al final, como mucho 100 caracteres y nunca un nombre
+/// reservado (CON, PRN, AUX, NUL, COM1…: se les añade "_")
 pub fn nombre_valido(texto: &str, si_vacio: &str) -> String {
     let limpio: String = texto
         .chars()
         .map(|c| if matches!(c, '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control() { ' ' } else { c })
         .collect();
     let limpio = limpio.split_whitespace().collect::<Vec<_>>().join(" ");
-    let cortado: String = limpio.chars().take(100).collect();
-    let cortado = cortado.trim_end_matches(['.', ' ']).to_string();
-    if cortado.is_empty() { si_vacio.to_string() } else { cortado }
+    let recortar = |t: &str| t.trim_matches(['.', ' ']).to_string();
+    let mut nombre = recortar(&limpio);
+    nombre = recortar(&nombre.chars().take(100).collect::<String>());
+    if nombre.is_empty() {
+        return si_vacio.to_string();
+    }
+    let base = nombre.split('.').next().unwrap_or_default().trim_end();
+    if RESERVADOS.iter().any(|r| r.eq_ignore_ascii_case(base)) {
+        nombre.push('_');
+    }
+    nombre
 }
 
 /// Pone los archivos en el portapapeles, como "Copiar" en el Explorador
@@ -134,4 +149,34 @@ pub fn compartir(hwnd: isize, archivos: &[PathBuf], titulo: &str) -> windows::co
         GESTOR.set(Some(nuevo));
     }
     unsafe { interop.ShowShareUIForWindow(hwnd) }
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    #[test]
+    fn nombres_validos_en_windows() {
+        assert_eq!(nombre_valido("AC/DC: Back in Black?", "x"), "AC DC Back in Black");
+        assert_eq!(nombre_valido("  ..The Memes Of 2010s.....  ", "x"), "The Memes Of 2010s");
+        assert_eq!(nombre_valido("a\tb\nc   d", "x"), "a b c d");
+        assert_eq!(nombre_valido("con", "x"), "con_");
+        assert_eq!(nombre_valido("COM1.txt", "x"), "COM1.txt_");
+        assert_eq!(nombre_valido("Concierto", "x"), "Concierto");
+        assert_eq!(nombre_valido("???", "klippo"), "klippo");
+        assert_eq!(nombre_valido(&"á".repeat(150), "x").chars().count(), 100);
+    }
+
+    #[test]
+    fn no_pisa_lo_que_ya_existe() {
+        let carpeta = std::env::temp_dir().join(format!("klippo-copiar-{}", std::process::id()));
+        let origen = std::env::temp_dir().join(format!("klippo-origen-{}.mp4", std::process::id()));
+        fs::write(&origen, b"x").unwrap();
+        let nombres: Vec<String> = (0..3)
+            .map(|_| copiar_en(&origen, &carpeta, "Vídeo").unwrap().file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(nombres, ["Vídeo.mp4", "Vídeo (1).mp4", "Vídeo (2).mp4"]);
+        fs::remove_dir_all(carpeta).unwrap();
+        fs::remove_file(origen).unwrap();
+    }
 }

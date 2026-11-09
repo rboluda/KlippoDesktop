@@ -371,7 +371,7 @@
 {#if exportacion}
   <PanelExportar
     estado={exportacion}
-    titulo={descarga?.titulo ?? "Klippo"}
+    titulo={descarga?.titulo ?? null}
     oncancelar={() => invoke("cancelar_exportacion")}
     oncerrar={() => (exportacion = null)}
   />

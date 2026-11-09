@@ -27,7 +27,9 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 
 - **Descargar** de YouTube, TikTok, X, Instagram y Facebook (y muchas webs más) con yt-dlp, en
   H.264 + AAC para que el vídeo se vea y se comparta en cualquier sitio. Eliges la calidad en
-  cada vídeo: mejor, 1080p, 720p, 480p o solo audio (M4A). En TikTok solo se usan formatos con
+  cada vídeo: mejor, 1080p, 720p, 480p o solo audio en **M4A** (sin recodificar) o en **MP3**
+  (VBR V0, unos 245 kbps). Los audios llevan dentro la carátula, el título y el artista y, en
+  las listas, el álbum (el nombre de la lista) y el número de pista. En TikTok solo se usan formatos con
   imagen y sonido juntos, y si un vídeo llega mudo Klippo lo vuelve a pedir con otro formato.
 - **Listas de reproducción** de YouTube (un enlace `youtube.com/playlist?list=…`, hasta 100
   elementos) y **carruseles** de Instagram y X (hasta 20): la barra avanza sobre el total
@@ -53,8 +55,9 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 - **Compartir** desde cada vídeo: WhatsApp (copia el vídeo y abre WhatsApp: eliges el chat y
   pulsas Ctrl+V), el menú Compartir de Windows, Copiar (para pegarlo donde quieras) o
   arrastrar la miniatura a otra app o a una carpeta.
-- **Guardar** crea `Descargas\Klippo\klippo_<fecha>.mp4` (o `.m4a` si es solo audio). Si no lo
-  pulsas, el vídeo nunca sale de la carpeta temporal de Klippo.
+- **Guardar** crea `Descargas\Klippo\<título del vídeo>.mp4` (o `.m4a`, `.mp3`), con
+  `klippo_<fecha>` solo si no tiene título; si ya existe, añade « (1)», « (2)»… Si no lo pulsas,
+  el vídeo nunca sale de la carpeta temporal de Klippo.
 - Aviso de Windows al terminar cada descarga si Klippo no está delante, con WhatsApp, Copiar y
   Guardar.
 

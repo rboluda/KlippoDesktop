@@ -192,10 +192,13 @@ fn de_klippo(ruta: &str) -> Result<PathBuf, String> {
     if ruta.starts_with(&raiz) && ruta.is_file() { Ok(ruta) } else { Err(no_encontrado()) }
 }
 
+/// `titulo`: el del vídeo original, para el nombre del archivo
 #[tauri::command]
-pub async fn guardar_archivo(app: AppHandle, ruta: String) -> Result<PathBuf, String> {
+pub async fn guardar_archivo(app: AppHandle, ruta: String, titulo: Option<String>) -> Result<PathBuf, String> {
     let ruta = de_klippo(&ruta)?;
-    tauri::async_runtime::spawn_blocking(move || compartir::guardar(&app, &ruta)).await.map_err(texto)?
+    tauri::async_runtime::spawn_blocking(move || compartir::guardar(&app, &ruta, titulo.as_deref()))
+        .await
+        .map_err(texto)?
 }
 
 #[tauri::command]

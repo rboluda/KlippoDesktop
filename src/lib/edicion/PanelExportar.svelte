@@ -11,7 +11,13 @@
     titulo,
     oncancelar,
     oncerrar,
-  }: { estado: EstadoExportacion; titulo: string; oncancelar: () => void; oncerrar: () => void } = $props();
+  }: {
+    estado: EstadoExportacion;
+    /** Título del vídeo original: nombre al guardar y título al compartir */
+    titulo: string | null;
+    oncancelar: () => void;
+    oncerrar: () => void;
+  } = $props();
 
   let guardado = $state<string | null>(null);
 
@@ -31,7 +37,7 @@
         await invoke("whatsapp_archivo", { ruta });
         mostrarMensaje({ texto: t.whatsappAbierto });
       }),
-    compartir: () => intentar(() => invoke("compartir_archivo", { ruta, titulo })),
+    compartir: () => intentar(() => invoke("compartir_archivo", { ruta, titulo: titulo ?? "Klippo" })),
     copiar: () =>
       intentar(async () => {
         await invoke("copiar_archivo", { ruta });
@@ -39,7 +45,7 @@
       }),
     guardar: () =>
       intentar(async () => {
-        if (!guardado) guardado = await invoke<string>("guardar_archivo", { ruta });
+        if (!guardado) guardado = await invoke<string>("guardar_archivo", { ruta, titulo });
         const enDescargas = guardado;
         mostrarMensaje({
           texto: t.guardado,

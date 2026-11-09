@@ -54,8 +54,10 @@ pub fn formato_con_audio(altura_max: Option<u32>) -> String {
     ])
 }
 
-/// Solo audio: M4A (AAC) tal cual si existe; si no, FFmpeg lo convierte
-pub const FORMATO_AUDIO: &str = "bestaudio[ext=m4a]/bestaudio";
+/// Solo audio en M4A: el AAC tal cual si existe (sin recodificar); si no, FFmpeg lo convierte
+pub const FORMATO_AUDIO_M4A: &str = "bestaudio[ext=m4a]/bestaudio";
+/// Solo audio en MP3: lo mejor que haya y FFmpeg lo pasa a MP3 VBR V0 (unos 245 kbps)
+pub const FORMATO_AUDIO_MP3: &str = "bestaudio/best";
 
 // Une las alternativas con "/" quitando las repetidas (sin límite salen iguales)
 fn unir(opciones: Vec<String>) -> String {

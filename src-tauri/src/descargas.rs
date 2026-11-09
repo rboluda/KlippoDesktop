@@ -39,8 +39,10 @@ pub enum Calidad {
     P1080,
     P720,
     P480,
-    /// Solo la pista de audio, en M4A (AAC)
+    /// Solo la pista de audio, en M4A (AAC, sin recodificar)
     Audio,
+    /// Solo la pista de audio, en MP3 (VBR V0)
+    Mp3,
 }
 
 impl Calidad {
@@ -49,12 +51,12 @@ impl Calidad {
             Calidad::P1080 => Some(1080),
             Calidad::P720 => Some(720),
             Calidad::P480 => Some(480),
-            Calidad::Mejor | Calidad::Audio => None,
+            Calidad::Mejor | Calidad::Audio | Calidad::Mp3 => None,
         }
     }
 
     fn solo_audio(self) -> bool {
-        self == Calidad::Audio
+        matches!(self, Calidad::Audio | Calidad::Mp3)
     }
 }
 
@@ -306,7 +308,7 @@ impl Descargas {
             return Ok(guardado);
         }
         let archivo = descarga.archivo.filter(|a| a.exists()).ok_or_else(no_encontrada)?;
-        let destino = compartir::guardar(&self.app, &archivo)?;
+        let destino = compartir::guardar(&self.app, &archivo, descarga.titulo.as_deref())?;
         if let Some(mut meta) = cache::leer_meta(&carpeta) {
             meta.guardado = Some(destino.clone());
             let _ = cache::escribir_meta(&carpeta, &meta);
@@ -554,7 +556,7 @@ impl Descargas {
         })
     }
 
-    /// Una ejecución de yt-dlp. `formato` None = solo audio
+    /// Una ejecución de yt-dlp. `formato` None = solo audio (M4A o MP3 según la calidad)
     fn ejecutar(&self, motor: &Motor, descarga: &Descarga, carpeta: &Path, formato: Option<&str>) -> Result<(), Fallo> {
         let mut comando = motor.ytdlp();
         match formato {
@@ -562,14 +564,22 @@ impl Descargas {
                 // Si solo hay WebM/MKV, se cambia el contenedor a MP4 sin recodificar
                 comando.args(["-f", formato, "--remux-video", "mp4"]);
             }
-            None => {
-                comando
-                    .args(["-f", formatos::FORMATO_AUDIO, "-x", "--audio-format", "m4a"])
-                    // La imagen del vídeo sirve de miniatura (el audio no tiene fotogramas)
-                    .args(["--write-thumbnail", "--convert-thumbnails", "jpg", "-o"])
-                    // miniatura.jpg, o miniatura-1.jpg, miniatura-2.jpg… en una lista
-                    .arg(format!("thumbnail:{}", carpeta.join("miniatura%(playlist_index&-{}|)s.%(ext)s").display()));
+            None if descarga.calidad == Calidad::Mp3 => {
+                comando.args(["-f", formatos::FORMATO_AUDIO_MP3, "-x", "--audio-format", "mp3", "--audio-quality", "0"]);
             }
+            None => {
+                comando.args(["-f", formatos::FORMATO_AUDIO_M4A, "-x", "--audio-format", "m4a"]);
+            }
+        }
+        if formato.is_none() {
+            comando
+                // La carátula y los datos van dentro del audio: título, artista y, en una lista,
+                // el álbum (el nombre de la lista) y el número de pista (fuera de una lista,
+                // yt-dlp solo avisa de que no los hay). El JPG se queda junto al audio con su
+                // mismo nombre (video-2.jpg) y sirve de miniatura en Klippo.
+                .args(["--write-thumbnail", "--convert-thumbnails", "jpg", "--embed-thumbnail", "--embed-metadata"])
+                .args(["--parse-metadata", "playlist_title:%(album)s"])
+                .args(["--parse-metadata", "playlist_index:%(track_number)s"]);
         }
         let carrusel = sesiones::Plataforma::de_url(&descarga.url).is_some_and(|p| p.tiene_carruseles());
         let lista = enlaces::es_solo_lista(&descarga.url);
@@ -647,8 +657,10 @@ impl Descargas {
         if self.canceladas.lock().unwrap().contains(&descarga.id) {
             return Err(Fallo::Cancelada);
         }
-        // En una lista, si fallan algunos elementos se dan por buenos los demás
-        if !estado.success() && (carrusel || lista) && !cache::archivos_finales(carpeta).is_empty() {
+        // En una lista, si fallan algunos elementos se dan por buenos los demás; en solo audio,
+        // si el audio está (p. ej. solo ha fallado la carátula), también
+        let tolerable = carrusel || lista || descarga.calidad.solo_audio();
+        if !estado.success() && tolerable && !cache::archivos_finales(carpeta).is_empty() {
             return Ok(());
         }
         if !estado.success() {
@@ -755,8 +767,8 @@ fn leer_titulos(ruta: &Path) -> HashMap<String, (Option<String>, Option<String>)
         .collect()
 }
 
-/// En solo audio, yt-dlp deja la imagen de cada elemento como miniatura-<n>.jpg (o con el
-/// nombre del audio, video-<n>.jpg): pasa a miniatura.jpg en la carpeta de ese elemento
+/// En solo audio, yt-dlp deja la imagen de cada elemento junto al audio y con su nombre
+/// (video.jpg, video-2.jpg…): pasa a miniatura.jpg en la carpeta de ese elemento
 fn mover_miniatura_de_audio(origen: &Path, archivo: &Path, destino: &Path) {
     let nombre = archivo.file_stem().and_then(|n| n.to_str()).unwrap_or("video");
     let sufijo = nombre.strip_prefix("video").unwrap_or("");
@@ -835,7 +847,7 @@ fn extension(archivo: &Path) -> String {
 }
 
 fn es_audio(archivo: &Path) -> bool {
-    archivo.extension().is_some_and(|e| e.eq_ignore_ascii_case("m4a"))
+    archivo.extension().is_some_and(|e| e.eq_ignore_ascii_case("m4a") || e.eq_ignore_ascii_case("mp3"))
 }
 
 fn no_encontrada() -> String {

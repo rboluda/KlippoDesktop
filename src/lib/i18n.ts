@@ -23,6 +23,7 @@ const es = {
   calidad720: "Hasta 720p",
   calidad480: "Hasta 480p",
   calidadAudio: "Solo audio (M4A)",
+  calidadMp3: "Solo audio (MP3)",
   cancelar: "Cancelar",
 
   analizando: "Analizando enlace…",
@@ -206,6 +207,7 @@ const en: typeof es = {
   calidad720: "Up to 720p",
   calidad480: "Up to 480p",
   calidadAudio: "Audio only (M4A)",
+  calidadMp3: "Audio only (MP3)",
   cancelar: "Cancel",
 
   analizando: "Analyzing link…",
@@ -379,7 +381,14 @@ export function formato(texto: string, ...valores: (string | number)[]): string 
 /** Nombre de cada calidad en el diálogo y en Ajustes */
 export function nombreCalidad(calidad: string): string {
   return (
-    { mejor: t.calidadMejor, p1080: t.calidad1080, p720: t.calidad720, p480: t.calidad480, audio: t.calidadAudio }[
+    {
+      mejor: t.calidadMejor,
+      p1080: t.calidad1080,
+      p720: t.calidad720,
+      p480: t.calidad480,
+      audio: t.calidadAudio,
+      mp3: t.calidadMp3,
+    }[
       calidad
     ] ?? calidad
   );

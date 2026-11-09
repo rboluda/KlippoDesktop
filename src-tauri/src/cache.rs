@@ -13,8 +13,8 @@ use crate::descargas::Calidad;
 pub const UNA_HORA: Duration = Duration::from_secs(60 * 60);
 const ARCHIVO_META: &str = "meta.json";
 pub const ARCHIVO_MINIATURA: &str = "miniatura.jpg";
-/// Archivos finales posibles: vídeo MP4 o solo audio M4A
-const EXTENSIONES: [&str; 2] = ["mp4", "m4a"];
+/// Archivos finales posibles: vídeo MP4 o solo audio M4A o MP3
+const EXTENSIONES: [&str; 3] = ["mp4", "m4a", "mp3"];
 
 pub fn raiz() -> PathBuf {
     std::env::temp_dir().join("Klippo")

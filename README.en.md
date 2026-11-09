@@ -27,7 +27,9 @@ same idea, the same colors and everything learned there about each platform.
 
 - **Download** from YouTube, TikTok, X, Instagram and Facebook (and many more sites) with
   yt-dlp, as H.264 + AAC so the video plays and shares anywhere. Pick the quality for each
-  video: best, 1080p, 720p, 480p or audio only (M4A). On TikTok only formats with picture and
+  video: best, 1080p, 720p, 480p or audio only in **M4A** (not re-encoded) or **MP3** (VBR V0,
+  about 245 kbps). Audio files carry the cover, title and artist and, in playlists, the album
+  (the playlist name) and the track number. On TikTok only formats with picture and
   sound together are used, and if a video arrives silent Klippo asks for it again in another
   format.
 - YouTube **playlists** (a `youtube.com/playlist?list=…` link, up to 100 items) and Instagram
@@ -53,8 +55,9 @@ same idea, the same colors and everything learned there about each platform.
 - **Share** from each video: WhatsApp (copies the video and opens WhatsApp: pick the chat and
   press Ctrl+V), the Windows Share menu, Copy (to paste it anywhere) or drag the thumbnail to
   another app or a folder.
-- **Save** creates `Downloads\Klippo\klippo_<date>.mp4` (or `.m4a` for audio only). If you don't
-  click it, the video never leaves Klippo's temporary folder.
+- **Save** creates `Downloads\Klippo\<video title>.mp4` (or `.m4a`, `.mp3`), with
+  `klippo_<date>` only when there's no title; if it already exists, it adds " (1)", " (2)"… If
+  you don't click it, the video never leaves Klippo's temporary folder.
 - A Windows notification when each download finishes, if Klippo isn't in front, with WhatsApp,
   Copy and Save.
 

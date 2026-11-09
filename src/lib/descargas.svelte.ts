@@ -5,8 +5,9 @@ import { startDrag } from "@crabnebula/tauri-plugin-drag";
 import { formato, t } from "./i18n";
 import { mostrarMensaje } from "./mensajes.svelte";
 
-export type Calidad = "mejor" | "p1080" | "p720" | "p480" | "audio";
-export const CALIDADES: Calidad[] = ["mejor", "p1080", "p720", "p480", "audio"];
+/** "audio" es solo audio en M4A (el nombre de siempre, para no perder lo ya guardado); "mp3", en MP3 */
+export type Calidad = "mejor" | "p1080" | "p720" | "p480" | "audio" | "mp3";
+export const CALIDADES: Calidad[] = ["mejor", "p1080", "p720", "p480", "audio", "mp3"];
 
 export type Estado =
   | { tipo: "analizando" }
