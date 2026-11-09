@@ -1,6 +1,6 @@
-// Guardar y compartir un vídeo descargado:
-// - Guardar: copia en Descargas\Klippo\klippo_<fecha>.mp4 (o .m4a). Es lo único que sale de
-//   la carpeta temporal.
+// Guardar y compartir vídeos descargados (uno o los de una lista entera):
+// - Guardar: copia en Descargas\Klippo\klippo_<fecha>.mp4 (o .m4a); los de una lista, en
+//   Descargas\Klippo\<lista>\<título>. Es lo único que sale de la carpeta temporal.
 // - Copiar: el archivo al portapapeles, para pegarlo con Ctrl+V en WhatsApp, Telegram, un
 //   correo o una carpeta.
 // - WhatsApp: copia y abre WhatsApp (la app si está instalada; si no, WhatsApp Web).
@@ -37,13 +37,42 @@ pub fn guardar(app: &AppHandle, archivo: &Path) -> Result<PathBuf, String> {
     Ok(destino)
 }
 
-/// Pone el archivo en el portapapeles, como "Copiar" en el Explorador
-pub fn copiar(archivo: &Path) -> Result<(), String> {
-    let ruta = archivo.to_string_lossy().into_owned();
+/// Copia el archivo en Descargas\Klippo\<carpeta>\<nombre>.<ext> (sin pisar nada: "nombre (2)")
+pub fn guardar_como(app: &AppHandle, archivo: &Path, carpeta: &str, nombre: &str) -> Result<PathBuf, String> {
+    let carpeta = app.path().download_dir().map_err(texto)?.join("Klippo").join(nombre_valido(carpeta, "Klippo"));
+    fs::create_dir_all(&carpeta).map_err(texto)?;
+    let nombre = nombre_valido(nombre, "klippo");
+    let extension = archivo.extension().and_then(|e| e.to_str()).unwrap_or("mp4");
+    let mut destino = carpeta.join(format!("{nombre}.{extension}"));
+    let mut n = 2;
+    while destino.exists() {
+        destino = carpeta.join(format!("{nombre} ({n}).{extension}"));
+        n += 1;
+    }
+    fs::copy(archivo, &destino).map_err(texto)?;
+    Ok(destino)
+}
+
+/// Nombre de archivo o carpeta válido en Windows: \ / : * ? " < > | pasan a espacios, sin
+/// espacios ni puntos al final y como mucho 100 caracteres
+pub fn nombre_valido(texto: &str, si_vacio: &str) -> String {
+    let limpio: String = texto
+        .chars()
+        .map(|c| if matches!(c, '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control() { ' ' } else { c })
+        .collect();
+    let limpio = limpio.split_whitespace().collect::<Vec<_>>().join(" ");
+    let cortado: String = limpio.chars().take(100).collect();
+    let cortado = cortado.trim_end_matches(['.', ' ']).to_string();
+    if cortado.is_empty() { si_vacio.to_string() } else { cortado }
+}
+
+/// Pone los archivos en el portapapeles, como "Copiar" en el Explorador
+pub fn copiar(archivos: &[PathBuf]) -> Result<(), String> {
+    let rutas: Vec<String> = archivos.iter().map(|a| a.to_string_lossy().into_owned()).collect();
     let _abierto = clipboard_win::Clipboard::new_attempts(10).map_err(texto)?;
     // Se vacía antes: si quedara el texto de un enlace, algunas apps pegarían el enlace
     clipboard_win::raw::empty().map_err(texto)?;
-    clipboard_win::raw::set_file_list(&[ruta.as_str()]).map_err(texto)
+    clipboard_win::raw::set_file_list(&rutas).map_err(texto)
 }
 
 /// ¿Está instalada la app de WhatsApp (registra el protocolo whatsapp:)?
@@ -51,9 +80,9 @@ fn hay_whatsapp_de_escritorio() -> bool {
     windows_registry::CLASSES_ROOT.open("whatsapp").is_ok()
 }
 
-/// Copia el vídeo y abre WhatsApp. Devuelve true si se abrió la app, false si WhatsApp Web.
-pub fn whatsapp(app: &AppHandle, archivo: &Path) -> Result<bool, String> {
-    copiar(archivo)?;
+/// Copia los vídeos y abre WhatsApp. Devuelve true si se abrió la app, false si WhatsApp Web.
+pub fn whatsapp(app: &AppHandle, archivos: &[PathBuf]) -> Result<bool, String> {
+    copiar(archivos)?;
     let escritorio = hay_whatsapp_de_escritorio();
     let destino = if escritorio { "whatsapp://" } else { "https://web.whatsapp.com/" };
     app.opener().open_url(destino, None::<&str>).map_err(texto)?;
@@ -62,7 +91,7 @@ pub fn whatsapp(app: &AppHandle, archivo: &Path) -> Result<bool, String> {
 
 /// Lo que se comparte la próxima vez que Windows lo pida (evento DataRequested)
 struct Peticion {
-    archivo: StorageFile,
+    archivos: Vec<StorageFile>,
     titulo: HSTRING,
 }
 
@@ -73,11 +102,14 @@ thread_local! {
     static GESTOR: RefCell<Option<DataTransferManager>> = const { RefCell::new(None) };
 }
 
-/// Abre el menú Compartir de Windows con el vídeo. Tiene que llamarse desde el hilo de la
+/// Abre el menú Compartir de Windows con los vídeos. Tiene que llamarse desde el hilo de la
 /// ventana.
-pub fn compartir(hwnd: isize, archivo: &Path, titulo: &str) -> windows::core::Result<()> {
-    let archivo = StorageFile::GetFileFromPathAsync(&HSTRING::from(archivo.as_os_str()))?.join()?;
-    PETICION.set(Some(Peticion { archivo, titulo: HSTRING::from(titulo) }));
+pub fn compartir(hwnd: isize, archivos: &[PathBuf], titulo: &str) -> windows::core::Result<()> {
+    let archivos = archivos
+        .iter()
+        .map(|a| StorageFile::GetFileFromPathAsync(&HSTRING::from(a.as_os_str()))?.join())
+        .collect::<windows::core::Result<Vec<_>>>()?;
+    PETICION.set(Some(Peticion { archivos, titulo: HSTRING::from(titulo) }));
 
     let interop = factory::<DataTransferManager, IDataTransferManagerInterop>()?;
     let hwnd = HWND(hwnd as *mut _);
@@ -90,8 +122,12 @@ pub fn compartir(hwnd: isize, archivo: &Path, titulo: &str) -> windows::core::Re
                 };
                 let datos = args.Request()?.Data()?;
                 datos.Properties()?.SetTitle(&peticion.titulo)?;
-                let elemento: IStorageItem = peticion.archivo.cast()?;
-                datos.SetStorageItemsReadOnly(&IIterable::<IStorageItem>::from(vec![Some(elemento)]))?;
+                let elementos = peticion
+                    .archivos
+                    .iter()
+                    .map(|a| a.cast::<IStorageItem>().map(Some))
+                    .collect::<windows::core::Result<Vec<_>>>()?;
+                datos.SetStorageItemsReadOnly(&IIterable::<IStorageItem>::from(elementos))?;
                 Ok(())
             },
         ))?;

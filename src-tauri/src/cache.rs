@@ -43,6 +43,12 @@ pub struct Meta {
     /// Copia guardada en Descargas\Klippo, si el usuario la pidió
     #[serde(default)]
     pub guardado: Option<PathBuf>,
+    /// Los vídeos de una misma lista (o carrusel) comparten grupo: el id de la descarga original
+    #[serde(default)]
+    pub grupo: Option<String>,
+    /// Nombre de la lista
+    #[serde(default)]
+    pub lista: Option<String>,
 }
 
 pub fn escribir_meta(carpeta: &Path, meta: &Meta) -> std::io::Result<()> {
@@ -157,6 +163,8 @@ mod pruebas {
             duracion: Some(12.5),
             completada: true,
             guardado: None,
+            grupo: None,
+            lista: None,
         };
         escribir_meta(&carpeta, &meta).unwrap();
         fs::write(carpeta.join("video.mp4"), b"12345").unwrap();

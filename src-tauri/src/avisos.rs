@@ -80,7 +80,7 @@ fn accion_sobre_descarga(app: &AppHandle, id: &str, accion: Option<&str>) {
     let descargas = app.state::<Arc<Descargas>>();
     let archivo = descargas.archivo(id);
     let resultado = match (accion, archivo) {
-        (Some("whatsapp"), Some(archivo)) => compartir::whatsapp(app, &archivo).map(|_| {
+        (Some("whatsapp"), Some(archivo)) => compartir::whatsapp(app, std::slice::from_ref(&archivo)).map(|_| {
             mostrar(
                 app,
                 &traducir("Vídeo copiado", "Video copied"),
@@ -88,7 +88,7 @@ fn accion_sobre_descarga(app: &AppHandle, id: &str, accion: Option<&str>) {
                 None,
             )
         }),
-        (Some("copiar"), Some(archivo)) => compartir::copiar(&archivo).map(|_| {
+        (Some("copiar"), Some(archivo)) => compartir::copiar(std::slice::from_ref(&archivo)).map(|_| {
             mostrar(
                 app,
                 &traducir("Vídeo copiado", "Video copied"),
@@ -123,6 +123,19 @@ fn guardado(app: &AppHandle, ruta: &Path) {
             Ok(())
         })
         .show();
+}
+
+/// "Lista descargada: 10 archivos" con el nombre de la lista; al pulsarlo, Klippo
+pub fn lista_terminada(app: &AppHandle, _grupo: &str, nombre: &str, archivos: usize, es_audio: bool) {
+    if ventana_delante(app) {
+        return;
+    }
+    let titulo = if es_audio {
+        traducir(&format!("Lista descargada: {archivos} canciones"), &format!("Playlist downloaded: {archivos} songs"))
+    } else {
+        traducir(&format!("Lista descargada: {archivos} vídeos"), &format!("Playlist downloaded: {archivos} videos"))
+    };
+    mostrar(app, &titulo, nombre, None);
 }
 
 pub fn descarga_fallida(app: &AppHandle, url: &str, mensaje: &str) {

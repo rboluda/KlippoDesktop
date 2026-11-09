@@ -153,6 +153,12 @@ pub fn run() {
             comandos::iniciar_sesion,
             comandos::cerrar_sesion,
             comandos::plataforma_de,
+            comandos::guardar_lista,
+            comandos::copiar_lista,
+            comandos::whatsapp_lista,
+            comandos::compartir_lista,
+            comandos::eliminar_lista,
+            comandos::abrir_carpeta,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar Klippo");

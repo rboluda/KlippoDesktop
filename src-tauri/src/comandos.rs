@@ -136,13 +136,13 @@ pub fn mostrar_guardado(app: AppHandle, descargas: Gestor, id: String) -> Result
 
 #[tauri::command]
 pub fn copiar_descarga(descargas: Gestor, id: String) -> Result<(), String> {
-    compartir::copiar(&descargas.archivo(&id).ok_or_else(no_encontrado)?)
+    compartir::copiar(&[descargas.archivo(&id).ok_or_else(no_encontrado)?])
 }
 
 /// Copia el vídeo y abre WhatsApp. true = la app de escritorio, false = WhatsApp Web
 #[tauri::command]
 pub fn whatsapp_descarga(app: AppHandle, descargas: Gestor, id: String) -> Result<bool, String> {
-    compartir::whatsapp(&app, &descargas.archivo(&id).ok_or_else(no_encontrado)?)
+    compartir::whatsapp(&app, &[descargas.archivo(&id).ok_or_else(no_encontrado)?])
 }
 
 /// Menú Compartir de Windows. Las órdenes que no son async corren en el hilo de la ventana,
@@ -154,7 +154,7 @@ pub fn compartir_descarga(app: AppHandle, descargas: Gestor, id: String) -> Resu
     let titulo = descarga.titulo.unwrap_or_else(|| "Klippo".into());
     let ventana = app.get_webview_window("main").ok_or_else(no_encontrado)?;
     let hwnd = ventana.hwnd().map_err(texto)?.0 as isize;
-    compartir::compartir(hwnd, &archivo, &titulo).map_err(texto)
+    compartir::compartir(hwnd, &[archivo], &titulo).map_err(texto)
 }
 
 // ---- Editor ----
@@ -200,12 +200,12 @@ pub async fn guardar_archivo(app: AppHandle, ruta: String) -> Result<PathBuf, St
 
 #[tauri::command]
 pub fn copiar_archivo(ruta: String) -> Result<(), String> {
-    compartir::copiar(&de_klippo(&ruta)?)
+    compartir::copiar(&[de_klippo(&ruta)?])
 }
 
 #[tauri::command]
 pub fn whatsapp_archivo(app: AppHandle, ruta: String) -> Result<bool, String> {
-    compartir::whatsapp(&app, &de_klippo(&ruta)?)
+    compartir::whatsapp(&app, &[de_klippo(&ruta)?])
 }
 
 #[tauri::command]
@@ -213,7 +213,7 @@ pub fn compartir_archivo(app: AppHandle, ruta: String, titulo: String) -> Result
     let ruta = de_klippo(&ruta)?;
     let ventana = app.get_webview_window("main").ok_or_else(no_encontrado)?;
     let hwnd = ventana.hwnd().map_err(texto)?.0 as isize;
-    compartir::compartir(hwnd, &ruta, &titulo).map_err(texto)
+    compartir::compartir(hwnd, &[ruta], &titulo).map_err(texto)
 }
 
 #[tauri::command]
@@ -257,4 +257,52 @@ pub async fn cerrar_sesion(app: AppHandle, plataforma: sesiones::Plataforma) -> 
 #[tauri::command]
 pub fn plataforma_de(url: String) -> Option<sesiones::Plataforma> {
     sesiones::Plataforma::de_url(&url)
+}
+
+// ---- Listas: acciones sobre todos sus vídeos a la vez ----
+
+/// Guarda la lista en Descargas\Klippo\<lista>\; devuelve la carpeta
+#[tauri::command]
+pub async fn guardar_lista(descargas: Gestor<'_>, grupo: String) -> Result<PathBuf, String> {
+    let descargas = descargas.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || descargas.guardar_lista(&grupo)).await.map_err(texto)?
+}
+
+#[tauri::command]
+pub fn copiar_lista(descargas: Gestor, grupo: String) -> Result<(), String> {
+    compartir::copiar(&archivos_de_la_lista(&descargas, &grupo)?)
+}
+
+#[tauri::command]
+pub fn whatsapp_lista(app: AppHandle, descargas: Gestor, grupo: String) -> Result<bool, String> {
+    compartir::whatsapp(&app, &archivos_de_la_lista(&descargas, &grupo)?)
+}
+
+/// Menú Compartir de Windows con todos los archivos (en el hilo de la ventana)
+#[tauri::command]
+pub fn compartir_lista(app: AppHandle, descargas: Gestor, grupo: String) -> Result<(), String> {
+    let archivos = archivos_de_la_lista(&descargas, &grupo)?;
+    let titulo = descargas.de_la_lista(&grupo).iter().find_map(|d| d.lista.clone()).unwrap_or_else(|| "Klippo".into());
+    let ventana = app.get_webview_window("main").ok_or_else(no_encontrado)?;
+    let hwnd = ventana.hwnd().map_err(texto)?.0 as isize;
+    compartir::compartir(hwnd, &archivos, &titulo).map_err(texto)
+}
+
+#[tauri::command]
+pub fn eliminar_lista(descargas: Gestor, grupo: String) {
+    descargas.eliminar_lista(&grupo);
+}
+
+/// Abre el Explorador con la carpeta (la de una lista guardada)
+#[tauri::command]
+pub fn abrir_carpeta(app: AppHandle, ruta: String) -> Result<(), String> {
+    let ruta = PathBuf::from(ruta);
+    if !ruta.is_dir() {
+        return Err(no_encontrado());
+    }
+    app.opener().open_path(ruta.to_string_lossy(), None::<&str>).map_err(texto)
+}
+
+fn archivos_de_la_lista(descargas: &Descargas, grupo: &str) -> Result<Vec<PathBuf>, String> {
+    Some(descargas.archivos_de_la_lista(grupo)).filter(|a| !a.is_empty()).ok_or_else(no_encontrado)
 }

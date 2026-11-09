@@ -29,8 +29,12 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
   H.264 + AAC para que el vídeo se vea y se comparta en cualquier sitio. Eliges la calidad en
   cada vídeo: mejor, 1080p, 720p, 480p o solo audio (M4A). En TikTok solo se usan formatos con
   imagen y sonido juntos, y si un vídeo llega mudo Klippo lo vuelve a pedir con otro formato.
-- **Carruseles** de Instagram y X: se descargan todos sus vídeos (hasta 20), cada uno en su
-  tarjeta.
+- **Listas de reproducción** de YouTube (un enlace `youtube.com/playlist?list=…`, hasta 100
+  elementos) y **carruseles** de Instagram y X (hasta 20): la barra avanza sobre el total
+  («40 % · 4 de 10») y la lista ocupa una sola tarjeta con **Guardar todo**
+  (`Descargas\Klippo\<lista>\` con cada archivo con su título), **Compartir**, **Copiar** y
+  **WhatsApp** de todos a la vez; «Ver uno a uno» la despliega. Si algún vídeo es privado o se
+  ha borrado, se bajan los demás.
 - **Sesión opcional** en Instagram, X y Facebook para los vídeos que la piden
   (*Ajustes → Cuentas*, o el botón de la descarga fallida). Se abre la web oficial en una
   ventana; Klippo nunca ve tu contraseña y solo guarda las cookies, en tu equipo.

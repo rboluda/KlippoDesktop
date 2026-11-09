@@ -34,6 +34,36 @@ export interface Descarga {
   esAudio: boolean;
   /** Copia en Descargas\Klippo, si se guardó */
   guardado: string | null;
+  /** Vídeos de una misma lista o carrusel: id de la descarga original y nombre de la lista */
+  grupo: string | null;
+  lista: string | null;
+  /** Mientras se baja una lista: por qué elemento va y cuántos hay ("4 de 10") */
+  elemento: number | null;
+  total: number | null;
+}
+
+/** Una entrada de Inicio: una descarga suelta o una lista con todos sus vídeos */
+export type Entrada = { tipo: "suelta"; descarga: Descarga } | { tipo: "lista"; grupo: string; elementos: Descarga[] };
+
+/** Junta los vídeos de cada lista en una sola entrada, donde aparece el primero */
+export function agrupar(lista: Descarga[]): Entrada[] {
+  const entradas: Entrada[] = [];
+  const grupos = new Map<string, Descarga[]>();
+  for (const d of lista) {
+    if (!d.grupo || d.estado.tipo !== "completada") {
+      entradas.push({ tipo: "suelta", descarga: d });
+      continue;
+    }
+    let elementos = grupos.get(d.grupo);
+    if (!elementos) {
+      elementos = [];
+      grupos.set(d.grupo, elementos);
+      entradas.push({ tipo: "lista", grupo: d.grupo, elementos });
+    }
+    elementos.push(d);
+  }
+  // Una "lista" que se ha quedado con un solo vídeo (p. ej. tras borrar los demás) va suelta
+  return entradas.map((e) => (e.tipo === "lista" && e.elementos.length === 1 ? { tipo: "suelta", descarga: e.elementos[0] } : e));
 }
 
 export const descargas = $state({ lista: [] as Descarga[] });
@@ -90,6 +120,32 @@ export const whatsapp = (d: Descarga) =>
   });
 
 export const compartir = (d: Descarga) => intentar(() => invoke("compartir_descarga", { id: d.id }));
+
+// ---- La lista entera ----
+
+export const guardarLista = (grupo: string, nombre: string) =>
+  intentar(async () => {
+    const carpeta = await invoke<string>("guardar_lista", { grupo });
+    mostrarMensaje({
+      texto: formato(t.listaGuardada, nombre),
+      accion: { texto: t.mostrar, hacer: () => invoke("abrir_carpeta", { ruta: carpeta }) },
+    });
+  });
+
+export const copiarLista = (grupo: string, cuantos: number) =>
+  intentar(async () => {
+    await invoke("copiar_lista", { grupo });
+    mostrarMensaje({ texto: formato(t.listaCopiada, cuantos) });
+  });
+
+export const whatsappLista = (grupo: string) =>
+  intentar(async () => {
+    await invoke<boolean>("whatsapp_lista", { grupo });
+    mostrarMensaje({ texto: t.whatsappAbiertoLista });
+  });
+
+export const compartirLista = (grupo: string) => intentar(() => invoke("compartir_lista", { grupo }));
+export const eliminarLista = (grupo: string) => invoke("eliminar_lista", { grupo });
 
 /** Una imagen mínima para el arrastre cuando no hay miniatura (PNG transparente de 1×1) */
 const SIN_IMAGEN =

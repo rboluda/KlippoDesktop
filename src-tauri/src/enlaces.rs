@@ -22,6 +22,20 @@ pub fn es_soportada(url: &str) -> bool {
     host(url).is_some_and(|h| DOMINIOS_SOPORTADOS.iter().any(|d| h == *d || h.ends_with(&format!(".{d}"))))
 }
 
+/// ¿Es un enlace que es solo de una lista de YouTube (youtube.com/playlist?list=…)? Un vídeo
+/// abierto dentro de una lista (watch?v=…&list=…) no lo es: se baja solo ese vídeo.
+pub fn es_solo_lista(url: &str) -> bool {
+    let Some(h) = host(url) else { return false };
+    if !(h == "youtube.com" || h.ends_with(".youtube.com")) {
+        return false;
+    }
+    let resto = url.trim().split_once("://").map_or("", |(_, r)| r);
+    let ruta_y_consulta = resto.split_once('/').map_or("", |(_, r)| r);
+    let (ruta, consulta) = ruta_y_consulta.split_once('?').unwrap_or((ruta_y_consulta, ""));
+    ruta.trim_end_matches('/').eq_ignore_ascii_case("playlist")
+        && consulta.split('&').any(|p| p.starts_with("list=") && p.len() > 5)
+}
+
 /// Dominio de una URL en minúsculas, sin usuario ni puerto
 pub fn host(url: &str) -> Option<String> {
     let resto = url.trim().split_once("://")?.1;
@@ -47,6 +61,16 @@ mod pruebas {
         );
         assert_eq!(extraer_url("sin enlace"), None);
         assert_eq!(extraer_url("https://"), None);
+    }
+
+    #[test]
+    fn enlaces_que_son_solo_de_lista() {
+        assert!(es_solo_lista("https://www.youtube.com/playlist?list=PL123"));
+        assert!(es_solo_lista("https://music.youtube.com/playlist?list=OLAK5uy_x&si=a"));
+        assert!(!es_solo_lista("https://www.youtube.com/watch?v=abc&list=PL123"));
+        assert!(!es_solo_lista("https://youtu.be/abc?list=PL123"));
+        assert!(!es_solo_lista("https://www.youtube.com/playlist"));
+        assert!(!es_solo_lista("https://ejemplo.com/playlist?list=PL123"));
     }
 
     #[test]

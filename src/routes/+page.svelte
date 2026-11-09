@@ -6,7 +6,8 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { guardar, leer } from "$lib/ajustes";
   import DialogoCalidad from "$lib/DialogoCalidad.svelte";
-  import { descargar, descargas, type Calidad } from "$lib/descargas.svelte";
+  import { agrupar, descargar, descargas, type Calidad } from "$lib/descargas.svelte";
+  import TarjetaLista from "$lib/TarjetaLista.svelte";
   import { esSoportada, extraerUrl } from "$lib/enlaces";
   import Icono from "$lib/Icono.svelte";
   import { t } from "$lib/i18n";
@@ -227,8 +228,12 @@
     </div>
   </div>
   <section class={vista}>
-    {#each descargas.lista as descarga (descarga.id)}
-      <TarjetaDescarga {descarga} mosaico={vista === "mosaico"} />
+    {#each agrupar(descargas.lista) as entrada (entrada.tipo === "lista" ? `lista-${entrada.grupo}` : entrada.descarga.id)}
+      {#if entrada.tipo === "lista"}
+        <TarjetaLista grupo={entrada.grupo} elementos={entrada.elementos} mosaico={vista === "mosaico"} />
+      {:else}
+        <TarjetaDescarga descarga={entrada.descarga} mosaico={vista === "mosaico"} />
+      {/if}
     {/each}
   </section>
 {/if}

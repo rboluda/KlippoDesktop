@@ -30,8 +30,11 @@ same idea, the same colors and everything learned there about each platform.
   video: best, 1080p, 720p, 480p or audio only (M4A). On TikTok only formats with picture and
   sound together are used, and if a video arrives silent Klippo asks for it again in another
   format.
-- **Carousels** from Instagram and X: all their videos are downloaded (up to 20), each one in
-  its own card.
+- YouTube **playlists** (a `youtube.com/playlist?list=…` link, up to 100 items) and Instagram
+  and X **carousels** (up to 20): the bar shows the overall progress ("40 % · 4 of 10") and the
+  playlist takes a single card with **Save all** (`Downloads\Klippo\<playlist>\`, each file
+  named after its title), **Share**, **Copy** and **WhatsApp** for all of them at once; "Show
+  one by one" expands it. If a video is private or deleted, the rest are still downloaded.
 - **Optional login** to Instagram, X and Facebook for videos that require it
   (*Settings → Accounts*, or the button on the failed download). The official website opens in
   a window; Klippo never sees your password and only keeps the cookies, on your computer.

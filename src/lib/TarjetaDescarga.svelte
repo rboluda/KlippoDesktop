@@ -59,6 +59,9 @@
         return t.analizando;
       case "descargando":
         if (descarga.progreso === null) return t.analizando;
+        // En una lista: el total y por qué elemento va
+        if (descarga.elemento && descarga.total)
+          return `${porcentaje} % · ${formato(t.deCuantos, descarga.elemento, descarga.total)}`;
         return descarga.eta
           ? formato(t.progresoEta, porcentaje, formatearDuracion(descarga.eta))
           : `${porcentaje} %`;

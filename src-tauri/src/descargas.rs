@@ -17,6 +17,7 @@ use tauri::{AppHandle, Emitter};
 use crate::avisos;
 use crate::cache::{self, Meta};
 use crate::compartir;
+use crate::enlaces;
 use crate::formatos;
 use crate::motor::{self, Motor};
 use crate::sesiones;
@@ -28,6 +29,8 @@ const LADO_MINIATURA: u32 = 480;
 const INTERVALO_PROGRESO: Duration = Duration::from_millis(150);
 /// Máximo de vídeos que se bajan de un carrusel
 const MAX_CARRUSEL: usize = 20;
+/// Máximo de elementos de una lista (que un enlace de canal no se ponga a bajar miles)
+const MAX_LISTA: usize = 100;
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -93,6 +96,12 @@ pub struct Descarga {
     pub es_audio: bool,
     /// Copia en Descargas\Klippo (si se guardó y sigue ahí)
     pub guardado: Option<PathBuf>,
+    /// Vídeos de una misma lista o carrusel: id de la descarga original y nombre de la lista
+    pub grupo: Option<String>,
+    pub lista: Option<String>,
+    /// Mientras se baja una lista: por qué elemento va y cuántos hay ("4 de 10")
+    pub elemento: Option<u32>,
+    pub total: Option<u32>,
 }
 
 impl Descarga {
@@ -119,6 +128,10 @@ impl Descarga {
             miniatura: miniatura.exists().then_some(miniatura),
             duracion: meta.duracion,
             guardado: meta.guardado.filter(|g| g.exists()),
+            grupo: meta.grupo,
+            lista: meta.lista,
+            elemento: None,
+            total: None,
         })
     }
 }
@@ -216,6 +229,10 @@ impl Descargas {
             duracion: None,
             es_audio: calidad.solo_audio(),
             guardado: None,
+            grupo: None,
+            lista: None,
+            elemento: None,
+            total: None,
         };
         self.lista.lock().unwrap().insert(0, descarga);
         self.avisar();
@@ -231,6 +248,8 @@ impl Descargas {
             d.estado = Estado::Analizando;
             d.progreso = None;
             d.eta = None;
+            d.elemento = None;
+            d.total = None;
             true
         });
         if puede == Some(true) {
@@ -297,6 +316,60 @@ impl Descargas {
         Ok(destino)
     }
 
+    // ---- Listas (vídeos con el mismo grupo) ----
+
+    /// Los elementos completados de una lista, en su orden
+    pub fn de_la_lista(&self, grupo: &str) -> Vec<Descarga> {
+        let mut elementos: Vec<Descarga> = self
+            .lista
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|d| d.grupo.as_deref() == Some(grupo) && d.estado == Estado::Completada)
+            .cloned()
+            .collect();
+        elementos.sort_by(|a, b| b.creado.cmp(&a.creado));
+        elementos
+    }
+
+    /// Los archivos de una lista, en su orden
+    pub fn archivos_de_la_lista(&self, grupo: &str) -> Vec<PathBuf> {
+        self.de_la_lista(grupo).into_iter().filter_map(|d| d.archivo).filter(|a| a.exists()).collect()
+    }
+
+    /// Guarda la lista entera en Descargas\Klippo\<lista>\, cada archivo con su título.
+    /// Devuelve la carpeta.
+    pub fn guardar_lista(&self, grupo: &str) -> Result<PathBuf, String> {
+        let elementos = self.de_la_lista(grupo);
+        let nombre = elementos.iter().find_map(|d| d.lista.clone()).unwrap_or_else(|| "Klippo".into());
+        let mut carpeta = None;
+        for (i, d) in elementos.iter().enumerate() {
+            let Some(archivo) = d.archivo.as_ref().filter(|a| a.exists()) else { continue };
+            // Si ya se guardó (suelto o con la lista), no se repite
+            if let Some(guardado) = d.guardado.as_ref().filter(|g| g.exists()) {
+                carpeta = carpeta.or_else(|| guardado.parent().map(Path::to_path_buf));
+                continue;
+            }
+            let titulo = d.titulo.clone().unwrap_or_else(|| format!("{} {}", nombre, i + 1));
+            let destino = compartir::guardar_como(&self.app, archivo, &nombre, &titulo)?;
+            carpeta = destino.parent().map(Path::to_path_buf);
+            let carpeta_cache = d.carpeta();
+            if let Some(mut meta) = cache::leer_meta(&carpeta_cache) {
+                meta.guardado = Some(destino.clone());
+                let _ = cache::escribir_meta(&carpeta_cache, &meta);
+            }
+            self.cambiar(&d.id, |x| x.guardado = Some(destino.clone()));
+        }
+        self.avisar();
+        carpeta.ok_or_else(no_encontrada)
+    }
+
+    pub fn eliminar_lista(&self, grupo: &str) {
+        for d in self.de_la_lista(grupo) {
+            self.eliminar(&d.id);
+        }
+    }
+
     // ---- Trabajo de cada descarga ----
 
     fn lanzar(self: &Arc<Self>, id: String) {
@@ -346,10 +419,13 @@ impl Descargas {
             duracion: None,
             completada: false,
             guardado: None,
+            grupo: None,
+            lista: None,
         };
         cache::escribir_meta(carpeta, &meta)?;
 
         let calidad = descarga.calidad;
+        let solo_lista = enlaces::es_solo_lista(&descarga.url);
         let formato = (!calidad.solo_audio())
             .then(|| formatos::formato(calidad.altura_max(), formatos::es_tiktok(&descarga.url)));
         self.ejecutar(&motor, descarga, carpeta, formato.as_deref())?;
@@ -358,7 +434,8 @@ impl Descargas {
         // Comprobación de audio: hay formatos que dicen tener sonido y no lo tienen (algunos
         // H.265 de TikTok, yt-dlp issues 16622 y 17372). Si un vídeo llega mudo, se repite la
         // descarga con un formato de imagen y sonido juntos en H.264, que siempre lo trae.
-        if !calidad.solo_audio() && archivos.iter().any(|a| !tiene_audio(&motor, a)) {
+        // (No con una lista entera de YouTube: repetirla toda por un vídeo no compensa)
+        if !calidad.solo_audio() && !solo_lista && archivos.iter().any(|a| !tiene_audio(&motor, a)) {
             for archivo in &archivos {
                 let _ = fs::remove_file(archivo);
             }
@@ -376,13 +453,31 @@ impl Descargas {
             return Err(sin_archivo());
         }
 
-        // Un título por línea: uno por vídeo si es un carrusel
-        let titulos: Vec<String> = fs::read_to_string(carpeta.join(ARCHIVO_TITULO))
-            .map(|t| t.lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect())
-            .unwrap_or_default();
+        // titulo.txt: por cada archivo, "ruta<TAB>lista<TAB>título" (after_move)
+        let datos = leer_titulos(&carpeta.join(ARCHIVO_TITULO));
+        let dato = |archivo: &Path| -> (Option<String>, Option<String>) {
+            let nombre = archivo.file_stem().and_then(|n| n.to_str()).unwrap_or_default().to_lowercase();
+            datos.get(&nombre).cloned().unwrap_or_default()
+        };
+        // Varios archivos (lista o carrusel): comparten grupo y se muestran juntos
+        let es_lista = archivos.len() > 1;
+        let nombre_lista = es_lista.then(|| {
+            archivos
+                .iter()
+                .find_map(|a| dato(a).0)
+                .or_else(|| dato(&archivos[0]).1)
+                .unwrap_or_else(|| "Klippo".into())
+        });
+        let base = Descarga {
+            grupo: es_lista.then(|| descarga.id.clone()),
+            lista: nombre_lista.clone(),
+            elemento: None,
+            total: None,
+            ..descarga.clone()
+        };
 
-        // Carrusel de Instagram o X: el primer vídeo se queda en esta tarjeta y cada uno de
-        // los demás pasa a su propia tarjeta (su carpeta, su miniatura y su meta.json)
+        // El primer vídeo se queda en esta tarjeta y cada uno de los demás pasa a la suya
+        // (su carpeta, su miniatura y su meta.json)
         for (i, archivo) in archivos.iter().enumerate().skip(1) {
             let id = format!("{}-{}", descarga.id, i + 1);
             let destino = cache::carpeta_descargas().join(&id);
@@ -390,13 +485,13 @@ impl Descargas {
             fs::create_dir_all(&destino)?;
             let movido = destino.join(format!("video.{}", extension(archivo)));
             fs::rename(archivo, &movido)?;
-            let titulo = titulos.get(i).or(titulos.first()).cloned();
+            mover_miniatura_de_audio(carpeta, archivo, &destino);
             let extra = Descarga {
                 id,
                 creado: descarga.creado.saturating_sub(i as u64),
-                ..descarga.clone()
+                ..base.clone()
             };
-            let terminada = self.terminar(&motor, &extra, &destino, &movido, titulo)?;
+            let terminada = self.terminar(&motor, &extra, &destino, &movido, dato(archivo).1)?;
             let mut lista = self.lista.lock().unwrap();
             let posicion = lista.iter().position(|d| d.id == descarga.id).map_or(0, |p| p + i);
             let posicion = posicion.min(lista.len());
@@ -405,13 +500,18 @@ impl Descargas {
 
         // El primero se llama siempre video.<ext>, como una descarga normal
         let primero = carpeta.join(format!("video.{}", extension(&archivos[0])));
+        mover_miniatura_de_audio(carpeta, &archivos[0], carpeta);
+        let titulo = dato(&archivos[0]).1;
         if archivos[0] != primero {
             fs::rename(&archivos[0], &primero)?;
         }
-        let terminada = self.terminar(&motor, descarga, carpeta, &primero, titulos.first().cloned())?;
+        let terminada = self.terminar(&motor, &base, carpeta, &primero, titulo)?;
         self.cambiar(&descarga.id, |d| *d = terminada.clone());
         self.avisar();
-        avisos::descarga_terminada(&self.app, &terminada);
+        match nombre_lista {
+            Some(nombre) => avisos::lista_terminada(&self.app, &descarga.id, &nombre, archivos.len(), terminada.es_audio),
+            None => avisos::descarga_terminada(&self.app, &terminada),
+        }
         Ok(())
     }
 
@@ -436,6 +536,8 @@ impl Descargas {
             duracion: duracion(motor, archivo),
             completada: true,
             guardado: None,
+            grupo: descarga.grupo.clone(),
+            lista: descarga.lista.clone(),
         };
         cache::escribir_meta(carpeta, &meta)?;
         Ok(Descarga {
@@ -465,16 +567,20 @@ impl Descargas {
                     .args(["-f", formatos::FORMATO_AUDIO, "-x", "--audio-format", "m4a"])
                     // La imagen del vídeo sirve de miniatura (el audio no tiene fotogramas)
                     .args(["--write-thumbnail", "--convert-thumbnails", "jpg", "-o"])
-                    .arg(format!("thumbnail:{}", carpeta.join("miniatura.%(ext)s").display()));
+                    // miniatura.jpg, o miniatura-1.jpg, miniatura-2.jpg… en una lista
+                    .arg(format!("thumbnail:{}", carpeta.join("miniatura%(playlist_index&-{}|)s.%(ext)s").display()));
             }
         }
-        let plataforma = sesiones::Plataforma::de_url(&descarga.url);
-        if plataforma.is_some_and(|p| p.tiene_carruseles()) {
-            // Instagram y X: un carrusel es una "lista"; se bajan todos sus vídeos (yt-dlp no
-            // descarga las fotos)
-            comando.args(["--yes-playlist", "--playlist-items", &format!("1:{MAX_CARRUSEL}")]);
+        let carrusel = sesiones::Plataforma::de_url(&descarga.url).is_some_and(|p| p.tiene_carruseles());
+        let lista = enlaces::es_solo_lista(&descarga.url);
+        if carrusel || lista {
+            // Un carrusel de Instagram o X (yt-dlp no descarga las fotos) o un enlace que es
+            // solo de lista: se bajan todos sus vídeos. Si alguno es privado o se ha borrado,
+            // se siguen bajando los demás.
+            let maximo = if lista { MAX_LISTA } else { MAX_CARRUSEL };
+            comando.args(["--yes-playlist", "--ignore-errors", "--playlist-items", &format!("1:{maximo}")]);
         } else {
-            // YouTube y demás: solo el vídeo del enlace, aunque sea de una lista
+            // Solo el vídeo del enlace, aunque se haya abierto dentro de una lista
             comando.arg("--no-playlist");
         }
         // yt-dlp las lee y, al terminar, guarda en el mismo archivo las que se renueven
@@ -487,8 +593,9 @@ impl Descargas {
             .arg("-o")
             // video.mp4 si es uno solo; video-1.mp4, video-2.mp4… si es un carrusel
             .arg(carpeta.join("video%(playlist_index&-{}|)s.%(ext)s"))
-            // Guarda el título al terminar (after_move no activa el modo simulación)
-            .args(["--print-to-file", "after_move:%(title)s"])
+            // Por cada archivo, al terminar: su ruta, el nombre de la lista y su título
+            // (after_move no activa el modo simulación)
+            .args(["--print-to-file", "after_move:%(filepath)s\t%(playlist_title|)s\t%(title)s"])
             .arg(carpeta.join(ARCHIVO_TITULO))
             .arg("--")
             .arg(&descarga.url)
@@ -515,14 +622,17 @@ impl Descargas {
         while lector.read_until(b'\n', &mut linea).unwrap_or(0) > 0 {
             let texto = String::from_utf8_lossy(&linea).trim().to_string();
             linea.clear();
-            if let Some((fraccion, eta)) = progreso.leer(&texto) {
+            if let Some(avance) = progreso.leer(&texto) {
                 self.cambiar(&descarga.id, |d| {
                     d.estado = Estado::Descargando;
-                    d.progreso = fraccion;
-                    d.eta = eta;
+                    d.progreso = avance.fraccion;
+                    d.eta = avance.eta;
+                    d.elemento = avance.elemento.map(|(x, _)| x);
+                    d.total = avance.elemento.map(|(_, n)| n);
                 });
                 self.avisar_progreso();
-            } else if es_postproceso(&texto) {
+            } else if es_postproceso(&texto) && progreso.elemento.is_none() {
+                // (En una lista la barra es la del total: no se vacía entre canción y canción)
                 self.cambiar(&descarga.id, |d| {
                     d.estado = Estado::Procesando;
                     d.progreso = None;
@@ -536,6 +646,10 @@ impl Descargas {
         let errores = errores.join().unwrap_or_default();
         if self.canceladas.lock().unwrap().contains(&descarga.id) {
             return Err(Fallo::Cancelada);
+        }
+        // En una lista, si fallan algunos elementos se dan por buenos los demás
+        if !estado.success() && (carrusel || lista) && !cache::archivos_finales(carpeta).is_empty() {
+            return Ok(());
         }
         if !estado.success() {
             let mensaje = motor::linea_de_error(&errores)
@@ -566,16 +680,34 @@ impl Descargas {
 
 /// Progreso de una ejecución de yt-dlp. Cuando la imagen y el sonido van aparte, yt-dlp
 /// descarga dos archivos seguidos y cada uno va de 0 a 100 %: se juntan en una sola barra,
-/// dando al vídeo casi todo el recorrido porque es casi todo el peso.
+/// dando al vídeo casi todo el recorrido porque es casi todo el peso. En una lista, la barra
+/// es la del total: ((elemento − 1) + avance del archivo) / elementos.
 #[derive(Default)]
 struct Progreso {
     partes: usize,
     parte: usize,
+    /// "[download] Downloading item 4 of 10" → (4, 10)
+    elemento: Option<(u32, u32)>,
+}
+
+#[derive(Debug, PartialEq)]
+struct Avance {
+    fraccion: Option<f64>,
+    eta: Option<u64>,
+    elemento: Option<(u32, u32)>,
 }
 
 impl Progreso {
-    /// Devuelve Some((fracción, eta)) si la línea es de progreso
-    fn leer(&mut self, linea: &str) -> Option<(Option<f64>, Option<u64>)> {
+    /// Devuelve el avance si la línea es de progreso
+    fn leer(&mut self, linea: &str) -> Option<Avance> {
+        if let Some(resto) = linea.strip_prefix("[download] Downloading item ") {
+            let (x, n) = resto.split_once(" of ")?;
+            self.elemento = x.trim().parse().ok().zip(n.trim().parse().ok());
+            // Cada elemento vuelve a empezar sus partes (imagen + sonido)
+            self.partes = 0;
+            self.parte = 0;
+            return None;
+        }
         // "[info] abc: Downloading 1 format(s): 137+140"
         if linea.starts_with("[info]") {
             if let Some((_, formatos)) = linea.split_once("format(s): ") {
@@ -597,7 +729,44 @@ impl Progreso {
             (2, _) => f * 0.85,
             _ => f,
         });
-        Some((fraccion, eta))
+        let fraccion = match self.elemento {
+            Some((x, n)) if n > 0 => fraccion.map(|f| ((x.saturating_sub(1)) as f64 + f) / n as f64),
+            _ => fraccion,
+        };
+        // En una lista, el tiempo que queda es solo el del archivo en curso: no se enseña
+        let eta = if self.elemento.is_some() { None } else { eta };
+        Some(Avance { fraccion, eta, elemento: self.elemento })
+    }
+}
+
+/// titulo.txt de una descarga: por archivo, "ruta<TAB>lista<TAB>título". Devuelve, por nombre
+/// del archivo sin extensión (en minúsculas), el nombre de la lista y el título.
+fn leer_titulos(ruta: &Path) -> HashMap<String, (Option<String>, Option<String>)> {
+    let no_vacio = |t: &str| Some(t.trim().to_string()).filter(|t| !t.is_empty() && t != "NA");
+    fs::read_to_string(ruta)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|linea| {
+            let mut campos = linea.splitn(3, '\t');
+            let archivo = Path::new(campos.next()?.trim());
+            let nombre = archivo.file_stem()?.to_str()?.to_lowercase();
+            Some((nombre, (campos.next().and_then(no_vacio), campos.next().and_then(no_vacio))))
+        })
+        .collect()
+}
+
+/// En solo audio, yt-dlp deja la imagen de cada elemento como miniatura-<n>.jpg (o con el
+/// nombre del audio, video-<n>.jpg): pasa a miniatura.jpg en la carpeta de ese elemento
+fn mover_miniatura_de_audio(origen: &Path, archivo: &Path, destino: &Path) {
+    let nombre = archivo.file_stem().and_then(|n| n.to_str()).unwrap_or("video");
+    let sufijo = nombre.strip_prefix("video").unwrap_or("");
+    let final_ = destino.join(cache::ARCHIVO_MINIATURA);
+    for candidata in [format!("miniatura{sufijo}.jpg"), format!("{nombre}.jpg")] {
+        let ruta = origen.join(candidata);
+        if ruta.exists() && ruta != final_ {
+            let _ = fs::rename(&ruta, &final_);
+            return;
+        }
     }
 }
 
@@ -690,11 +859,11 @@ mod pruebas {
         let mut p = Progreso::default();
         assert_eq!(p.leer("[info] abc: Downloading 1 format(s): 18"), None);
         assert_eq!(p.leer("[download] Destination: C:\\x\\video.mp4"), None);
-        assert_eq!(p.leer("klippo|50|100|NA|3"), Some((Some(0.5), Some(3))));
+        assert_eq!(p.leer("klippo|50|100|NA|3"), Some(avance(Some(0.5), Some(3), None)));
         // Sin tamaño total, con el estimado
-        assert_eq!(p.leer("klippo|25|NA|100.0|NA"), Some((Some(0.25), None)));
+        assert_eq!(p.leer("klippo|25|NA|100.0|NA"), Some(avance(Some(0.25), None, None)));
         // Sin nada que sirva
-        assert_eq!(p.leer("klippo|NA|NA|NA|NA"), Some((None, None)));
+        assert_eq!(p.leer("klippo|NA|NA|NA|NA"), Some(avance(None, None, None)));
         assert_eq!(p.leer("[youtube] abc: Downloading webpage"), None);
     }
 
@@ -703,9 +872,43 @@ mod pruebas {
         let mut p = Progreso::default();
         p.leer("[info] abc: Downloading 1 format(s): 137+140");
         p.leer("[download] Destination: video.f137.mp4");
-        assert_eq!(p.leer("klippo|100|100|NA|0"), Some((Some(0.85), Some(0))));
+        assert_eq!(p.leer("klippo|100|100|NA|0"), Some(avance(Some(0.85), Some(0), None)));
         p.leer("[download] Destination: video.f140.m4a");
-        assert_eq!(p.leer("klippo|0|10|NA|1"), Some((Some(0.85), Some(1))));
-        assert_eq!(p.leer("klippo|10|10|NA|0"), Some((Some(1.0), Some(0))));
+        assert_eq!(p.leer("klippo|0|10|NA|1"), Some(avance(Some(0.85), Some(1), None)));
+        assert_eq!(p.leer("klippo|10|10|NA|0"), Some(avance(Some(1.0), Some(0), None)));
+    }
+
+    fn avance(fraccion: Option<f64>, eta: Option<u64>, elemento: Option<(u32, u32)>) -> Avance {
+        Avance { fraccion, eta, elemento }
+    }
+
+    #[test]
+    fn progreso_del_total_de_una_lista() {
+        let mut p = Progreso::default();
+        assert_eq!(p.leer("[download] Downloading item 4 of 10"), None);
+        p.leer("[info] abc: Downloading 1 format(s): 140");
+        p.leer("[download] Destination: video-4.webm");
+        // 3 terminados + la mitad del cuarto, de 10
+        assert_eq!(p.leer("klippo|50|100|NA|7"), Some(avance(Some(0.35), None, Some((4, 10)))));
+        // El siguiente vuelve a empezar sus partes
+        p.leer("[download] Downloading item 5 of 10");
+        p.leer("[info] def: Downloading 1 format(s): 137+140");
+        p.leer("[download] Destination: video-5.f137.mp4");
+        assert_eq!(p.leer("klippo|100|100|NA|0"), Some(avance(Some(0.485), None, Some((5, 10)))));
+    }
+
+    #[test]
+    fn titulos_por_archivo() {
+        let ruta = std::env::temp_dir().join(format!("klippo-titulos-{}.txt", std::process::id()));
+        fs::write(
+            &ruta,
+            "C:\\x\\video-1.m4a\tZelda OST\tSong of Storms\nC:\\x\\video-2.m4a\tZelda OST\tLost Woods\nC:\\x\\video.mp4\tNA\tSolo\n",
+        )
+        .unwrap();
+        let datos = leer_titulos(&ruta);
+        assert_eq!(datos["video-1"], (Some("Zelda OST".into()), Some("Song of Storms".into())));
+        assert_eq!(datos["video-2"].1.as_deref(), Some("Lost Woods"));
+        assert_eq!(datos["video"], (None, Some("Solo".into())));
+        fs::remove_file(ruta).unwrap();
     }
 }
