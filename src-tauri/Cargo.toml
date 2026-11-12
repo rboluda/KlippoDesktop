@@ -1,6 +1,6 @@
 [package]
 name = "klippo"
-version = "1.6.2"
+version = "1.6.3"
 description = "Klippo para Windows: descarga, recorta y comparte vídeos"
 authors = ["rboluda"]
 license = "GPL-3.0-or-later"
