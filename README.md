@@ -37,6 +37,16 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
   (`Descargas\Klippo\<lista>\` con cada archivo con su título), **Compartir**, **Copiar** y
   **WhatsApp** de todos a la vez; «Ver uno a uno» la despliega. Si algún vídeo es privado o se
   ha borrado, se bajan los demás.
+- **Desde Spotify**: pega (o arrastra, o envía con el marcador) un enlace de una lista, un
+  álbum o una canción de Spotify. Klippo lee sus canciones sin cuenta, busca cada una en
+  YouTube y te dice si lo encontrado es **idéntico** (mismo título, intérprete y duración),
+  **parecido** o no está; pulsando una fila abres el vídeo para comprobarlo. «Descargar todas»
+  baja el audio (M4A o MP3, en *Ajustes*) con el título, el artista, el álbum, el número de
+  pista y la portada de Spotify dentro, con el nombre `Artista - Título`. Se bajan dos a la vez
+  («En cola» el resto); si un vídeo falla se prueba con otro de los encontrados. Con «Guardar
+  al terminar» cada canción va sola a `Descargas\Klippo\<lista>\`, y «Ver en el Explorador»
+  abre esa carpeta. Sin cuenta, Spotify solo enseña las 100 primeras canciones de una lista:
+  si tiene más, Klippo te avisa.
 - **Sesión opcional** en Instagram, X y Facebook para los vídeos que la piden
   (*Ajustes → Cuentas*, o el botón de la descarga fallida). Se abre la web oficial en una
   ventana; Klippo nunca ve tu contraseña y solo guarda las cookies, en tu equipo.
@@ -93,7 +103,8 @@ Klippo solo instala las que se han publicado aquí.
 
 Sin publicidad, sin analítica, sin cuentas ni pantallas de bienvenida. Klippo solo se conecta
 para descargar el vídeo que le pides, para actualizar el motor cuando tú lo pides y, una vez
-al día, para mirar si hay versión nueva (se puede desactivar).
+al día, para mirar si hay versión nueva (se puede desactivar). A Spotify solo se conecta
+cuando pegas o compartes un enlace de Spotify, para leer esa lista y su portada.
 
 ## Compilar
 

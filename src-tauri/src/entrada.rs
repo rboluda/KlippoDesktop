@@ -49,7 +49,9 @@ pub fn ajuste<T: DeserializeOwned>(app: &AppHandle, clave: &str, por_defecto: T)
 /// pone delante con el enlace en el campo; si no, descarga sin quitarte de lo que hacías.
 pub fn pedir_descarga(app: &AppHandle, url: String, avisar_al_empezar: bool) {
     let preguntar = ajuste(app, "preguntarCalidad", true);
-    if preguntar || !enlaces::es_soportada(&url) {
+    // Un enlace de Spotify abre siempre su pantalla (lista de canciones y búsqueda en YouTube)
+    let spotify = crate::spotify::enlaces::es_spotify(&url);
+    if preguntar || spotify || !enlaces::es_soportada(&url) {
         *app.state::<Entrada>().pendiente.lock().unwrap() = Some(url);
         mostrar_ventana(app);
         let _ = app.emit("enlace-pendiente", ());

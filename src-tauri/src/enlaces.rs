@@ -1,8 +1,8 @@
 // Reconocer enlaces de vídeo en texto copiado (igual que util/Enlaces.kt de Android)
 
-const DOMINIOS_SOPORTADOS: [&str; 9] = [
+const DOMINIOS_SOPORTADOS: [&str; 11] = [
     "youtube.com", "youtu.be", "tiktok.com", "x.com", "twitter.com", "instagram.com",
-    "facebook.com", "fb.watch", "fb.com",
+    "facebook.com", "fb.watch", "fb.com", "open.spotify.com", "spotify.link",
 ];
 
 /// Las apps suelen copiar "Mira este vídeo https://...": se queda solo la URL

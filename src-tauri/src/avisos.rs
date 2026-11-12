@@ -138,6 +138,18 @@ pub fn lista_terminada(app: &AppHandle, _grupo: &str, nombre: &str, archivos: us
     mostrar(app, &titulo, nombre, None);
 }
 
+/// Al acabar la última canción de una lista de Spotify: el total (no un aviso por canción)
+pub fn spotify_terminada(app: &AppHandle, nombre: &str, bajadas: usize, fallidas: usize) {
+    if ventana_delante(app) {
+        return;
+    }
+    let mut titulo = traducir(&format!("Spotify: {bajadas} canciones descargadas"), &format!("Spotify: {bajadas} songs downloaded"));
+    if fallidas > 0 {
+        titulo.push_str(&traducir(&format!(", {fallidas} con error"), &format!(", {fallidas} failed")));
+    }
+    mostrar(app, &titulo, nombre, None);
+}
+
 pub fn descarga_fallida(app: &AppHandle, url: &str, mensaje: &str) {
     if ventana_delante(app) {
         return;

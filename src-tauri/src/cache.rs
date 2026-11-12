@@ -49,6 +49,9 @@ pub struct Meta {
     /// Nombre de la lista
     #[serde(default)]
     pub lista: Option<String>,
+    /// Canción de Spotify (sus datos y los vídeos de YouTube que se probarán)
+    #[serde(default)]
+    pub spotify: Option<crate::descargas::DatosSpotify>,
 }
 
 pub fn escribir_meta(carpeta: &Path, meta: &Meta) -> std::io::Result<()> {
@@ -104,6 +107,17 @@ pub fn limpiar(activas: &HashSet<String>, edad_maxima: Duration) {
     if let Ok(exportados) = fs::read_dir(crate::edicion::carpeta()) {
         for archivo in exportados.flatten().map(|e| e.path()) {
             if ultima_modificacion(&archivo).is_none_or(|t| t < limite) {
+                let _ = fs::remove_file(&archivo);
+            }
+        }
+    }
+    // Portadas de Spotify: pueden hacer falta mientras se baja una lista larga; se borran al día
+    if let Ok(portadas) = fs::read_dir(crate::spotify::lector::carpeta()) {
+        // (Vaciar, con edad cero, las borra todas)
+        let limite_portadas =
+            if edad_maxima.is_zero() { SystemTime::now() } else { SystemTime::now() - Duration::from_secs(24 * 3600) };
+        for archivo in portadas.flatten().map(|e| e.path()) {
+            if ultima_modificacion(&archivo).is_none_or(|t| t < limite_portadas) {
                 let _ = fs::remove_file(&archivo);
             }
         }
@@ -165,6 +179,7 @@ mod pruebas {
             guardado: None,
             grupo: None,
             lista: None,
+            spotify: None,
         };
         escribir_meta(&carpeta, &meta).unwrap();
         fs::write(carpeta.join("video.mp4"), b"12345").unwrap();

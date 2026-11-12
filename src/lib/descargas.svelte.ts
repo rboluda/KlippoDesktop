@@ -10,6 +10,7 @@ export type Calidad = "mejor" | "p1080" | "p720" | "p480" | "audio" | "mp3";
 export const CALIDADES: Calidad[] = ["mejor", "p1080", "p720", "p480", "audio", "mp3"];
 
 export type Estado =
+  | { tipo: "enCola" }
   | { tipo: "analizando" }
   | { tipo: "descargando" }
   | { tipo: "procesando" }
@@ -41,6 +42,8 @@ export interface Descarga {
   /** Mientras se baja una lista: por qué elemento va y cuántos hay ("4 de 10") */
   elemento: number | null;
   total: number | null;
+  /** Canción de Spotify */
+  spotify: { uri: string; titulo: string; artistas: string[]; videos: string[] } | null;
 }
 
 /** Una entrada de Inicio: una descarga suelta o una lista con todos sus vídeos */
@@ -51,7 +54,10 @@ export function agrupar(lista: Descarga[]): Entrada[] {
   const entradas: Entrada[] = [];
   const grupos = new Map<string, Descarga[]>();
   for (const d of lista) {
-    if (!d.grupo || d.estado.tipo !== "completada") {
+    // Las listas de Spotify van juntas desde el principio (con lo que aún se baja); las demás,
+    // cuando ya han terminado
+    const deSpotify = d.grupo?.startsWith("spotify-") ?? false;
+    if (!d.grupo || (d.estado.tipo !== "completada" && !deSpotify)) {
       entradas.push({ tipo: "suelta", descarga: d });
       continue;
     }
@@ -64,7 +70,11 @@ export function agrupar(lista: Descarga[]): Entrada[] {
     elementos.push(d);
   }
   // Una "lista" que se ha quedado con un solo vídeo (p. ej. tras borrar los demás) va suelta
-  return entradas.map((e) => (e.tipo === "lista" && e.elementos.length === 1 ? { tipo: "suelta", descarga: e.elementos[0] } : e));
+  return entradas.map((e) =>
+    e.tipo === "lista" && e.elementos.length === 1 && !e.grupo.startsWith("spotify-")
+      ? { tipo: "suelta", descarga: e.elementos[0] }
+      : e,
+  );
 }
 
 export const descargas = $state({ lista: [] as Descarga[] });
@@ -81,7 +91,7 @@ export async function empezarAEscuchar(): Promise<void> {
 }
 
 export function estaActiva(d: Descarga): boolean {
-  return d.estado.tipo === "analizando" || d.estado.tipo === "descargando" || d.estado.tipo === "procesando";
+  return ["enCola", "analizando", "descargando", "procesando"].includes(d.estado.tipo);
 }
 
 export const descargar = (url: string, calidad: Calidad) => invoke<string>("descargar", { url, calidad });
@@ -147,6 +157,7 @@ export const whatsappLista = (grupo: string) =>
 
 export const compartirLista = (grupo: string) => intentar(() => invoke("compartir_lista", { grupo }));
 export const eliminarLista = (grupo: string) => invoke("eliminar_lista", { grupo });
+export const cancelarLista = (grupo: string) => invoke("cancelar_lista", { grupo });
 
 /** Una imagen mínima para el arrastre cuando no hay miniatura (PNG transparente de 1×1) */
 const SIN_IMAGEN =

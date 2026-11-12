@@ -55,6 +55,8 @@
   const textoEstado = $derived.by(() => {
     const e = descarga.estado;
     switch (e.tipo) {
+      case "enCola":
+        return t.enCola;
       case "analizando":
         return t.analizando;
       case "descargando":
@@ -161,6 +163,14 @@
             onclick={() => mostrarGuardado(descarga.id)}
           >
             <Icono nombre="hecho" tamano={20} />
+          </button>
+          <button
+            class="boton-icono"
+            title={t.verEnExplorador}
+            aria-label={t.verEnExplorador}
+            onclick={() => mostrarGuardado(descarga.id)}
+          >
+            <Icono nombre="carpeta" tamano={20} />
           </button>
         {:else}
           <button class="boton-icono" title={t.guardar} aria-label={t.guardar} onclick={() => guardar(descarga)}>

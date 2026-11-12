@@ -1,7 +1,7 @@
 // Descargas: lista compartida con la interfaz (evento "descargas"), un hilo por descarga
 // con yt-dlp, comprobación de audio con reintento y miniatura local con FFmpeg.
 // Las completadas se reconstruyen desde la carpeta temporal; las demás solo viven en memoria.
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -31,6 +31,10 @@ const INTERVALO_PROGRESO: Duration = Duration::from_millis(150);
 const MAX_CARRUSEL: usize = 20;
 /// Máximo de elementos de una lista (que un enlace de canal no se ponga a bajar miles)
 const MAX_LISTA: usize = 100;
+/// Descargas a la vez en toda la app; las demás esperan "En cola"
+const A_LA_VEZ: usize = 2;
+/// Vídeos de YouTube que se prueban por canción de Spotify: el elegido y hasta 3 alternativas
+const INTENTOS_SPOTIFY: usize = 4;
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -63,6 +67,8 @@ impl Calidad {
 #[derive(Serialize, Clone, PartialEq)]
 #[serde(tag = "tipo", rename_all = "camelCase")]
 pub enum Estado {
+    /// Esperando turno (como mucho se bajan dos a la vez)
+    EnCola,
     /// yt-dlp está leyendo el enlace (aún no se sabe el tamaño)
     Analizando,
     Descargando,
@@ -75,7 +81,7 @@ pub enum Estado {
 
 impl Estado {
     fn activa(&self) -> bool {
-        matches!(self, Estado::Analizando | Estado::Descargando | Estado::Procesando)
+        matches!(self, Estado::EnCola | Estado::Analizando | Estado::Descargando | Estado::Procesando)
     }
 }
 
@@ -104,6 +110,33 @@ pub struct Descarga {
     /// Mientras se baja una lista: por qué elemento va y cuántos hay ("4 de 10")
     pub elemento: Option<u32>,
     pub total: Option<u32>,
+    /// Canción de Spotify
+    pub spotify: Option<DatosSpotify>,
+}
+
+/// Una canción de Spotify que se baja de YouTube
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DatosSpotify {
+    /// spotify:track:<id> (para encontrarla desde la pantalla de Spotify)
+    pub uri: String,
+    pub titulo: String,
+    pub artistas: Vec<String>,
+    /// Nombre de la lista o del álbum (una canción suelta no lleva ni álbum ni pista)
+    pub album: Option<String>,
+    pub pista: Option<u32>,
+    pub portada: Option<PathBuf>,
+    /// Vídeos de YouTube que se prueban en orden: el elegido y las alternativas
+    pub videos: Vec<String>,
+    /// Guardar sola al terminar en Descargas\Klippo[\<lista>]
+    pub guardar: bool,
+}
+
+impl DatosSpotify {
+    /// "Artista, Otro - Título": nombre en Klippo y del archivo
+    pub fn nombre(&self) -> String {
+        if self.artistas.is_empty() { self.titulo.clone() } else { format!("{} - {}", self.artistas.join(", "), self.titulo) }
+    }
 }
 
 impl Descarga {
@@ -134,6 +167,7 @@ impl Descarga {
             lista: meta.lista,
             elemento: None,
             total: None,
+            spotify: meta.spotify,
         })
     }
 }
@@ -157,6 +191,9 @@ pub struct Descargas {
     procesos: Mutex<HashMap<String, u32>>,
     canceladas: Mutex<HashSet<String>>,
     ultimo_aviso: Mutex<Instant>,
+    /// Descargas esperando turno y cuántas se están bajando
+    cola: Mutex<VecDeque<String>>,
+    en_marcha: Mutex<usize>,
 }
 
 impl Descargas {
@@ -168,6 +205,8 @@ impl Descargas {
             procesos: Mutex::new(HashMap::new()),
             canceladas: Mutex::new(HashSet::new()),
             ultimo_aviso: Mutex::new(Instant::now()),
+            cola: Mutex::new(VecDeque::new()),
+            en_marcha: Mutex::new(0),
         });
         // Al abrir se borra lo que tenga más de una hora, y después cada diez minutos
         let limpieza = descargas.clone();
@@ -235,6 +274,7 @@ impl Descargas {
             lista: None,
             elemento: None,
             total: None,
+            spotify: None,
         };
         self.lista.lock().unwrap().insert(0, descarga);
         self.avisar();
@@ -261,10 +301,85 @@ impl Descargas {
     }
 
     pub fn cancelar(&self, id: &str) {
+        let en_cola = {
+            let mut cola = self.cola.lock().unwrap();
+            let antes = cola.len();
+            cola.retain(|x| x != id);
+            cola.len() != antes
+        };
+        if en_cola {
+            self.cambiar(id, |d| d.estado = Estado::Cancelada);
+            self.avisar();
+            if let Some(d) = self.buscar(id) {
+                self.al_acabar(&d);
+            }
+            return;
+        }
         self.canceladas.lock().unwrap().insert(id.to_string());
         if let Some(pid) = self.procesos.lock().unwrap().get(id) {
             matar(*pid);
         }
+    }
+
+    /// Cancela lo que quede por bajar de una lista
+    pub fn cancelar_lista(&self, grupo: &str) {
+        let pendientes: Vec<String> = self
+            .lista
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|d| d.grupo.as_deref() == Some(grupo) && d.estado.activa())
+            .map(|d| d.id.clone())
+            .collect();
+        for id in pendientes {
+            self.cancelar(&id);
+        }
+    }
+
+    /// Canciones de Spotify en cola: se bajan con el formato elegido y, si `grupo` es de una
+    /// lista ("spotify-<id>-<momento>"), juntas y en el orden de Spotify
+    pub fn descargar_spotify(self: &Arc<Self>, canciones: Vec<(DatosSpotify, u32)>, calidad: Calidad, grupo: Option<String>) -> Result<(), String> {
+        self.motor()?;
+        static CONTADOR: AtomicU32 = AtomicU32::new(0);
+        // El momento del grupo ordena las canciones aunque se pidan en varias veces
+        let base = grupo
+            .as_deref()
+            .and_then(|g| g.rsplit('-').next())
+            .and_then(|m| m.parse::<u64>().ok())
+            .unwrap_or_else(ahora_ms);
+        let mut ids = Vec::new();
+        for (datos, posicion) in canciones {
+            let Some(url) = datos.videos.first().cloned() else { continue };
+            let id = format!("{}-{}", ahora_ms(), CONTADOR.fetch_add(1, Ordering::Relaxed));
+            let descarga = Descarga {
+                id: id.clone(),
+                url,
+                calidad,
+                creado: base.saturating_sub(posicion as u64),
+                titulo: Some(datos.nombre()),
+                estado: Estado::EnCola,
+                progreso: None,
+                eta: None,
+                archivo: None,
+                miniatura: None,
+                duracion: None,
+                es_audio: true,
+                guardado: None,
+                grupo: grupo.clone(),
+                lista: datos.album.clone(),
+                elemento: None,
+                total: None,
+                spotify: Some(datos),
+            };
+            let mut lista = self.lista.lock().unwrap();
+            lista.push(descarga);
+            lista.sort_by(|a, b| b.creado.cmp(&a.creado));
+            ids.push(id);
+        }
+        for id in ids {
+            self.lanzar(id);
+        }
+        Ok(())
     }
 
     pub fn eliminar(&self, id: &str) {
@@ -374,16 +489,49 @@ impl Descargas {
 
     // ---- Trabajo de cada descarga ----
 
+    /// A la cola: como mucho A_LA_VEZ se bajan a la vez
     fn lanzar(self: &Arc<Self>, id: String) {
         self.canceladas.lock().unwrap().remove(&id);
-        let yo = self.clone();
-        thread::spawn(move || yo.trabajar(&id));
+        self.cambiar(&id, |d| {
+            d.estado = Estado::EnCola;
+            d.progreso = None;
+            d.eta = None;
+        });
+        self.cola.lock().unwrap().push_back(id);
+        self.avisar();
+        self.siguiente();
+    }
+
+    /// Arranca las que quepan
+    fn siguiente(self: &Arc<Self>) {
+        loop {
+            let id = {
+                let mut en_marcha = self.en_marcha.lock().unwrap();
+                if *en_marcha >= A_LA_VEZ {
+                    return;
+                }
+                let Some(id) = self.cola.lock().unwrap().pop_front() else { return };
+                *en_marcha += 1;
+                id
+            };
+            self.cambiar(&id, |d| d.estado = Estado::Analizando);
+            self.avisar();
+            let yo = self.clone();
+            thread::spawn(move || {
+                yo.trabajar(&id);
+                *yo.en_marcha.lock().unwrap() -= 1;
+                yo.siguiente();
+            });
+        }
     }
 
     fn trabajar(&self, id: &str) {
         let Some(descarga) = self.buscar(id) else { return };
         let carpeta = descarga.carpeta();
-        let resultado = self.descargar_en(&descarga, &carpeta);
+        let resultado = match &descarga.spotify {
+            Some(datos) => self.descargar_cancion(&descarga, &carpeta, datos),
+            None => self.descargar_en(&descarga, &carpeta),
+        };
         self.procesos.lock().unwrap().remove(id);
 
         let cancelada = self.canceladas.lock().unwrap().remove(id);
@@ -393,21 +541,100 @@ impl Descargas {
             return;
         }
         let estado = match resultado {
-            Ok(()) => return,
-            Err(Fallo::Error(_)) if cancelada => Estado::Cancelada,
-            Err(Fallo::Cancelada) => Estado::Cancelada,
-            Err(Fallo::Error(mensaje)) => Estado::Fallida { mensaje },
+            Ok(()) => None,
+            Err(Fallo::Error(_)) if cancelada => Some(Estado::Cancelada),
+            Err(Fallo::Cancelada) => Some(Estado::Cancelada),
+            Err(Fallo::Error(mensaje)) => Some(Estado::Fallida { mensaje }),
         };
-        let _ = fs::remove_dir_all(&carpeta);
-        if let Estado::Fallida { mensaje } = &estado {
-            avisos::descarga_fallida(&self.app, &descarga.url, mensaje);
+        if let Some(estado) = estado {
+            let _ = fs::remove_dir_all(&carpeta);
+            // En una lista de Spotify no se avisa canción a canción
+            if let (Estado::Fallida { mensaje }, false) = (&estado, es_de_lista_spotify(&descarga)) {
+                avisos::descarga_fallida(&self.app, &descarga.url, mensaje);
+            }
+            self.cambiar(id, |d| {
+                d.estado = estado;
+                d.progreso = None;
+                d.eta = None;
+            });
+            self.avisar();
         }
-        self.cambiar(id, |d| {
-            d.estado = estado;
-            d.progreso = None;
-            d.eta = None;
-        });
-        self.avisar();
+        self.al_acabar(&descarga);
+    }
+
+    /// Una canción de Spotify: el vídeo elegido y, si falla (restricción de edad, bloqueo
+    /// regional…), las alternativas en orden, empezando de cero en cada intento. Si fallan
+    /// todos, el error que se enseña es el del primero.
+    fn descargar_cancion(&self, descarga: &Descarga, carpeta: &Path, datos: &DatosSpotify) -> Result<(), Fallo> {
+        let mut primer_error = None;
+        for url in datos.videos.iter().take(INTENTOS_SPOTIFY) {
+            let intento = Descarga { url: url.clone(), ..descarga.clone() };
+            self.cambiar(&descarga.id, |d| d.url = url.clone());
+            match self.descargar_en(&intento, carpeta) {
+                Ok(()) => return Ok(()),
+                Err(Fallo::Cancelada) => return Err(Fallo::Cancelada),
+                Err(Fallo::Error(mensaje)) => {
+                    primer_error.get_or_insert(mensaje);
+                    if self.canceladas.lock().unwrap().contains(&descarga.id) {
+                        return Err(Fallo::Cancelada);
+                    }
+                }
+            }
+        }
+        Err(Fallo::Error(primer_error.unwrap_or_else(|| "No se encontró el vídeo".into())))
+    }
+
+    /// Al acabar la última canción de una lista de Spotify, un solo aviso con el total
+    fn al_acabar(&self, descarga: &Descarga) {
+        if !es_de_lista_spotify(descarga) {
+            return;
+        }
+        let grupo = descarga.grupo.as_deref();
+        let (activas, bajadas, fallidas) = self.lista.lock().unwrap().iter().filter(|d| d.grupo.as_deref() == grupo).fold(
+            (0, 0, 0),
+            |(a, b, f), d| match d.estado {
+                _ if d.estado.activa() => (a + 1, b, f),
+                Estado::Completada => (a, b + 1, f),
+                Estado::Fallida { .. } => (a, b, f + 1),
+                _ => (a, b, f),
+            },
+        );
+        if activas == 0 && bajadas + fallidas > 0 {
+            let nombre = descarga.lista.clone().unwrap_or_else(|| "Spotify".into());
+            avisos::spotify_terminada(&self.app, &nombre, bajadas, fallidas);
+        }
+    }
+
+    /// Canción de Spotify recién bajada: datos y portada de Spotify dentro del audio, su
+    /// nombre "Artista - Título", la portada como miniatura y, si se pidió, guardada en
+    /// Descargas\Klippo[\<lista>]
+    fn rematar_cancion(&self, motor: &Motor, terminada: Descarga, carpeta: &Path, datos: &DatosSpotify) -> Descarga {
+        let Some(archivo) = terminada.archivo.clone() else { return terminada };
+        etiquetar(motor, &archivo, datos);
+        let miniatura = carpeta.join(cache::ARCHIVO_MINIATURA);
+        if let Some(portada) = datos.portada.as_ref().filter(|p| p.exists()) {
+            let _ = fs::copy(portada, &miniatura);
+        }
+        let nombre = datos.nombre();
+        let guardado = if datos.guardar {
+            match datos.album.as_deref() {
+                Some(lista) => compartir::guardar_como(&self.app, &archivo, lista, &nombre).ok(),
+                None => compartir::guardar(&self.app, &archivo, Some(&nombre)).ok(),
+            }
+        } else {
+            None
+        };
+        if let Some(mut meta) = cache::leer_meta(carpeta) {
+            meta.titulo = Some(nombre.clone());
+            meta.guardado = guardado.clone();
+            let _ = cache::escribir_meta(carpeta, &meta);
+        }
+        Descarga {
+            titulo: Some(nombre),
+            miniatura: miniatura.exists().then_some(miniatura),
+            guardado,
+            ..terminada
+        }
     }
 
     fn descargar_en(&self, descarga: &Descarga, carpeta: &Path) -> Result<(), Fallo> {
@@ -423,6 +650,7 @@ impl Descargas {
             guardado: None,
             grupo: None,
             lista: None,
+            spotify: None,
         };
         cache::escribir_meta(carpeta, &meta)?;
 
@@ -471,8 +699,8 @@ impl Descargas {
                 .unwrap_or_else(|| "Klippo".into())
         });
         let base = Descarga {
-            grupo: es_lista.then(|| descarga.id.clone()),
-            lista: nombre_lista.clone(),
+            grupo: if es_lista { Some(descarga.id.clone()) } else { descarga.grupo.clone() },
+            lista: if es_lista { nombre_lista.clone() } else { descarga.lista.clone() },
             elemento: None,
             total: None,
             ..descarga.clone()
@@ -507,11 +735,16 @@ impl Descargas {
         if archivos[0] != primero {
             fs::rename(&archivos[0], &primero)?;
         }
-        let terminada = self.terminar(&motor, &base, carpeta, &primero, titulo)?;
+        let mut terminada = self.terminar(&motor, &base, carpeta, &primero, titulo)?;
+        if let Some(datos) = &descarga.spotify {
+            terminada = self.rematar_cancion(&motor, terminada, carpeta, datos);
+        }
         self.cambiar(&descarga.id, |d| *d = terminada.clone());
         self.avisar();
         match nombre_lista {
             Some(nombre) => avisos::lista_terminada(&self.app, &descarga.id, &nombre, archivos.len(), terminada.es_audio),
+            // Las de una lista de Spotify avisan todas juntas al acabar la última
+            None if es_de_lista_spotify(descarga) => {}
             None => avisos::descarga_terminada(&self.app, &terminada),
         }
         Ok(())
@@ -540,6 +773,7 @@ impl Descargas {
             guardado: None,
             grupo: descarga.grupo.clone(),
             lista: descarga.lista.clone(),
+            spotify: descarga.spotify.clone(),
         };
         cache::escribir_meta(carpeta, &meta)?;
         Ok(Descarga {
@@ -839,6 +1073,53 @@ fn crear_miniatura(motor: &Motor, video: &Path, destino: &Path) {
         if destino.metadata().is_ok_and(|m| m.len() > 0) {
             return;
         }
+    }
+}
+
+fn es_de_lista_spotify(descarga: &Descarga) -> bool {
+    descarga.spotify.is_some() && descarga.grupo.is_some()
+}
+
+/// Reescribe los datos del audio con FFmpeg, sin recodificar: solo la pista de audio (fuera la
+/// imagen de YouTube), sin los datos de YouTube y con título, artista (todos), álbum, pista y
+/// la portada de Spotify como carátula. Si falla con portada se repite sin ella; si falla del
+/// todo, el audio se queda como estaba.
+fn etiquetar(motor: &Motor, archivo: &Path, datos: &DatosSpotify) {
+    let ext = extension(archivo);
+    let temporal = archivo.with_extension(format!("etiquetado.{ext}"));
+    let portada = datos.portada.as_ref().filter(|p| p.exists());
+    let intentar = |con_portada: bool| -> bool {
+        let mut comando = motor.ffmpeg();
+        comando.args(["-v", "error", "-y", "-i"]).arg(archivo);
+        if con_portada {
+            comando.arg("-i").arg(portada.unwrap());
+        }
+        comando.args(["-map", "0:a:0"]);
+        if con_portada {
+            comando.args(["-map", "1:v:0"]);
+        }
+        comando.args(["-map_metadata", "-1", "-c", "copy"]);
+        comando.arg("-metadata").arg(format!("title={}", datos.titulo));
+        comando.arg("-metadata").arg(format!("artist={}", datos.artistas.join(", ")));
+        if let Some(album) = &datos.album {
+            comando.arg("-metadata").arg(format!("album={album}"));
+        }
+        if let Some(pista) = datos.pista {
+            comando.arg("-metadata").arg(format!("track={pista}"));
+        }
+        if con_portada {
+            comando.args(["-disposition:v:0", "attached_pic"]);
+        }
+        if ext == "mp3" {
+            comando.args(["-id3v2_version", "3"]);
+        }
+        comando.arg(&temporal).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        comando.status().is_ok_and(|s| s.success()) && temporal.metadata().is_ok_and(|m| m.len() > 0)
+    };
+    if (portada.is_some() && intentar(true)) || intentar(false) {
+        let _ = fs::rename(&temporal, archivo);
+    } else {
+        let _ = fs::remove_file(&temporal);
     }
 }
 

@@ -11,6 +11,7 @@ mod formatos;
 mod marcador;
 mod motor;
 mod sesiones;
+mod spotify;
 
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
@@ -159,6 +160,11 @@ pub fn run() {
             comandos::compartir_lista,
             comandos::eliminar_lista,
             comandos::abrir_carpeta,
+            comandos::leer_spotify,
+            comandos::buscar_spotify,
+            comandos::cancelar_busqueda_spotify,
+            comandos::descargar_spotify,
+            comandos::cancelar_lista,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar Klippo");

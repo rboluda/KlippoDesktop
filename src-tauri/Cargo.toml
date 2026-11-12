@@ -37,6 +37,8 @@ windows-registry = "0.6"
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 tauri-plugin-drag = "2.1.1"
 base64 = "0.22"
+ureq = "3"
+unicode-normalization = "0.1.26"
 
 # Tamaño mínimo del ejecutable (https://tauri.app/concept/size/)
 [profile.release]

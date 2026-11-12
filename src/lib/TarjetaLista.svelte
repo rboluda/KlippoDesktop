@@ -3,10 +3,13 @@
 <script lang="ts">
   import { convertFileSrc } from "@tauri-apps/api/core";
   import {
+    cancelarLista,
     compartirLista,
     copiarLista,
     eliminarLista,
+    estaActiva,
     guardarLista,
+    mostrarGuardado,
     whatsappLista,
     type Descarga,
   } from "./descargas.svelte";
@@ -22,10 +25,29 @@
   let menuAbierto = $state(false);
 
   const primero = $derived(elementos[0]);
+  const conImagen = $derived(elementos.find((d) => d.miniatura) ?? primero);
   const nombre = $derived(elementos.find((d) => d.lista)?.lista ?? primero.titulo ?? "Klippo");
   const sonAudio = $derived(elementos.every((d) => d.esAudio));
-  const cuantos = $derived(formato(sonAudio ? t.canciones : t.videos, elementos.length));
-  const todasGuardadas = $derived(elementos.every((d) => d.guardado));
+
+  // Una lista de Spotify aparece desde el principio: lo que está terminado, lo que se baja,
+  // lo que ha fallado (las canceladas no cuentan)
+  const validas = $derived(elementos.filter((d) => d.estado.tipo !== "cancelada"));
+  const terminadas = $derived(elementos.filter((d) => d.estado.tipo === "completada"));
+  const enCurso = $derived(elementos.filter(estaActiva));
+  const conError = $derived(elementos.filter((d) => d.estado.tipo === "fallida").length);
+  const bajando = $derived(enCurso.length > 0);
+  const avanceTotal = $derived(
+    (terminadas.length + enCurso.reduce((suma, d) => suma + (d.progreso ?? 0), 0)) / Math.max(1, validas.length),
+  );
+  const cuantos = $derived(
+    terminadas.length === validas.length
+      ? formato(sonAudio ? t.canciones : t.videos, terminadas.length)
+      : formato(t.descargadasDe, terminadas.length, validas.length),
+  );
+  const todasGuardadas = $derived(terminadas.length > 0 && terminadas.every((d) => d.guardado));
+  const sinTerminadas = $derived(terminadas.length === 0);
+  // Ya hay algo guardado: el Explorador se abre en esa carpeta, con ese archivo marcado
+  const unaGuardada = $derived(terminadas.find((d) => d.guardado));
 
   function cerrarMenuFuera(evento: MouseEvent) {
     if (menuAbierto && !(evento.target as Element).closest(".menu-contenedor")) menuAbierto = false;
@@ -37,8 +59,8 @@
 <article class="lista" class:mosaico class:desplegada>
   <div class="cabeza">
     <button class="miniatura" onclick={() => (desplegada = !desplegada)} title={desplegada ? t.ocultarLista : t.verUnoAUno}>
-      {#if primero.miniatura}
-        <img src={convertFileSrc(primero.miniatura)} alt="" loading="lazy" />
+      {#if conImagen.miniatura}
+        <img src={convertFileSrc(conImagen.miniatura)} alt="" loading="lazy" />
       {:else}
         <span class="sin-imagen"><Icono nombre={sonAudio ? "audio" : "lista"} tamano={32} /></span>
       {/if}
@@ -48,29 +70,42 @@
 
     <div class="cuerpo">
       <p class="titulo" title={nombre}>{nombre}</p>
-      <p class="detalle">{[plataforma(primero.url), cuantos].join(" · ")}</p>
+      <p class="detalle">
+        {[primero.spotify ? "Spotify" : plataforma(primero.url), cuantos].join(" · ")}
+        {#if conError > 0}
+          · <span class="error">{formato(t.conError, conError)}</span>
+        {/if}
+      </p>
+      {#if bajando}
+        <div class="barra"><span style:width="{Math.round(avanceTotal * 100)}%"></span></div>
+      {/if}
       <button class="boton texto desplegar" onclick={() => (desplegada = !desplegada)}>
         {desplegada ? t.ocultarLista : t.verUnoAUno}
       </button>
     </div>
 
     <div class="acciones">
-      <button class="boton-icono" title={t.whatsappTodo} aria-label={t.whatsappTodo} onclick={() => whatsappLista(grupo)}>
+      {#if bajando}
+        <button class="boton texto" onclick={() => cancelarLista(grupo)}>{t.cancelar}</button>
+      {/if}
+      <button class="boton-icono" disabled={sinTerminadas} title={t.whatsappTodo} aria-label={t.whatsappTodo} onclick={() => whatsappLista(grupo)}>
         <Icono nombre="whatsapp" tamano={20} />
       </button>
-      <button class="boton-icono" title={t.compartirTodo} aria-label={t.compartirTodo} onclick={() => compartirLista(grupo)}>
+      <button class="boton-icono" disabled={sinTerminadas} title={t.compartirTodo} aria-label={t.compartirTodo} onclick={() => compartirLista(grupo)}>
         <Icono nombre="compartir" tamano={20} />
       </button>
       <button
         class="boton-icono"
+        disabled={sinTerminadas}
         title={t.copiarTodo}
         aria-label={t.copiarTodo}
-        onclick={() => copiarLista(grupo, elementos.length)}
+        onclick={() => copiarLista(grupo, terminadas.length)}
       >
         <Icono nombre="copiar" tamano={20} />
       </button>
       <button
         class="boton-icono"
+        disabled={sinTerminadas}
         class:hecho={todasGuardadas}
         title={t.guardarTodo}
         aria-label={t.guardarTodo}
@@ -78,6 +113,16 @@
       >
         <Icono nombre={todasGuardadas ? "hecho" : "guardar"} tamano={20} />
       </button>
+      {#if unaGuardada}
+        <button
+          class="boton-icono"
+          title={t.verEnExplorador}
+          aria-label={t.verEnExplorador}
+          onclick={() => mostrarGuardado(unaGuardada.id)}
+        >
+          <Icono nombre="carpeta" tamano={20} />
+        </button>
+      {/if}
       <div class="menu-contenedor">
         <button
           class="boton-icono"
@@ -205,6 +250,30 @@
   .acciones {
     display: flex;
     align-items: center;
+  }
+
+  .acciones .boton-icono:disabled {
+    opacity: 0.38;
+    cursor: default;
+  }
+
+  .error {
+    color: var(--error);
+  }
+
+  .barra {
+    height: 4px;
+    margin-top: 8px;
+    border-radius: 2px;
+    background: var(--primary-container);
+    overflow: hidden;
+  }
+
+  .barra span {
+    display: block;
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.3s linear;
   }
 
   .hecho {

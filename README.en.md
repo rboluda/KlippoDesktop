@@ -37,6 +37,16 @@ same idea, the same colors and everything learned there about each platform.
   playlist takes a single card with **Save all** (`Downloads\Klippo\<playlist>\`, each file
   named after its title), **Share**, **Copy** and **WhatsApp** for all of them at once; "Show
   one by one" expands it. If a video is private or deleted, the rest are still downloaded.
+- **From Spotify**: paste (or drag, or send with the bookmark) a Spotify playlist, album or
+  song link. Klippo reads its songs without an account, searches each one on YouTube and tells
+  you whether the match is **identical** (same title, artist and length), **similar** or not
+  found; click a row to open the video and check it. "Download all" gets the audio (M4A or MP3,
+  in *Settings*) with Spotify's title, artist, album, track number and cover inside, named
+  `Artist - Title`. Two download at a time (the rest are "Queued"); if a video fails, another of
+  the matches is tried. With "Save when finished" each song goes to
+  `Downloads\Klippo\<playlist>\` on its own, and "Show in File Explorer" opens that folder.
+  Without an account Spotify only shows the first 100 songs of a playlist: if it has more,
+  Klippo tells you.
 - **Optional login** to Instagram, X and Facebook for videos that require it
   (*Settings → Accounts*, or the button on the failed download). The official website opens in
   a window; Klippo never sees your password and only keeps the cookies, on your computer.
@@ -93,7 +103,8 @@ published here.
 
 No ads, no analytics, no accounts, no welcome screens. Klippo only connects to download the
 video you ask for, to update its engine when you ask, and once a day to check for a new
-version (can be turned off).
+version (can be turned off). It only connects to Spotify when you paste or share a Spotify
+link, to read that playlist and its cover.
 
 ## Building
 

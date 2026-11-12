@@ -34,6 +34,7 @@
   let vista = $state<"lista" | "mosaico">("lista");
   let tamanoCache = $state(0);
   let tema = $state<Tema>("sistema");
+  let formatoSpotify = $state<Calidad>("audio");
   let vigilarPortapapeles = $state(true);
   let conWindows = $state(false);
   let avisoMarcador = $state("");
@@ -46,6 +47,7 @@
     vista = await leer("vista", "lista");
     vigilarPortapapeles = await leer("vigilarPortapapeles", true);
     tema = await leer<Tema>("tema", "sistema");
+    formatoSpotify = await leer<Calidad>("formatoSpotify", "audio");
     conWindows = await autoarranque.isEnabled().catch(() => false);
     cargarVersiones();
     cargarSesiones();
@@ -141,6 +143,16 @@
           {#each CALIDADES as c (c)}
             <option value={c}>{nombreCalidad(c)}</option>
           {/each}
+        </select>
+      </label>
+      <label class="fila">
+        <span class="textos">
+          <span class="titulo">{t.spotifyFormato}</span>
+          <span class="detalle">{t.spotifyFormatoDetalle}</span>
+        </span>
+        <select bind:value={formatoSpotify} onchange={() => guardar("formatoSpotify", formatoSpotify)}>
+          <option value="audio">M4A</option>
+          <option value="mp3">MP3</option>
         </select>
       </label>
       <label class="fila">

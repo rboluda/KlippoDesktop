@@ -7,7 +7,7 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::cache;
 use crate::entrada::{self, Entrada};
-use crate::{compartir, edicion, enlaces, marcador, sesiones, Arranque};
+use crate::{compartir, edicion, enlaces, marcador, sesiones, spotify, Arranque};
 use crate::descargas::{Calidad, Descarga, Descargas};
 use crate::motor::{texto, ResultadoActualizacion, Versiones};
 use crate::traducir;
@@ -308,4 +308,96 @@ pub fn abrir_carpeta(app: AppHandle, ruta: String) -> Result<(), String> {
 
 fn archivos_de_la_lista(descargas: &Descargas, grupo: &str) -> Result<Vec<PathBuf>, String> {
     Some(descargas.archivos_de_la_lista(grupo)).filter(|a| !a.is_empty()).ok_or_else(no_encontrado)
+}
+
+// ---- Spotify ----
+
+/// Lee una lista, un álbum o una canción de Spotify (resuelve también los spotify.link)
+#[tauri::command]
+pub async fn leer_spotify(enlace: String) -> Result<spotify::lector::Coleccion, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let enlace = spotify::lector::resolver(&enlace)?;
+        spotify::lector::leer(&enlace)
+    })
+    .await
+    .map_err(texto)?
+}
+
+/// Busca las canciones en YouTube; cada resultado llega con el evento "spotify-resultado" y
+/// el final con "spotify-fin-busqueda"
+#[tauri::command]
+pub fn buscar_spotify(app: AppHandle, descargas: Gestor, sesion: u64, canciones: Vec<spotify::lector::Cancion>) -> Result<(), String> {
+    spotify::busqueda::buscar(app, descargas.motor()?, sesion, canciones);
+    Ok(())
+}
+
+/// Se ha cerrado la pantalla de Spotify: se paran los yt-dlp de la búsqueda
+#[tauri::command]
+pub fn cancelar_busqueda_spotify(sesion: u64) {
+    spotify::busqueda::cancelar(sesion);
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PeticionSpotify {
+    cancion: spotify::lector::Cancion,
+    /// El vídeo elegido y las alternativas, en orden
+    videos: Vec<String>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ColeccionSpotify {
+    tipo: spotify::enlaces::Tipo,
+    id: String,
+    nombre: String,
+    portada: Option<PathBuf>,
+}
+
+/// Pone en cola canciones de Spotify. Las de una lista o un álbum comparten grupo (el que se
+/// pasa, o uno nuevo "spotify-<id>-<momento>", que se devuelve) y nombre de la lista.
+#[tauri::command]
+pub fn descargar_spotify(
+    descargas: Gestor,
+    coleccion: ColeccionSpotify,
+    canciones: Vec<PeticionSpotify>,
+    calidad: Calidad,
+    guardar: bool,
+    grupo: Option<String>,
+) -> Result<Option<String>, String> {
+    let es_lista = coleccion.tipo != spotify::enlaces::Tipo::Track;
+    let grupo = es_lista.then(|| {
+        grupo.unwrap_or_else(|| {
+            let ahora = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0);
+            format!("spotify-{}-{ahora}", coleccion.id)
+        })
+    });
+    let canciones = canciones
+        .into_iter()
+        .map(|p| {
+            let posicion = p.cancion.posicion;
+            let datos = crate::descargas::DatosSpotify {
+                uri: p.cancion.uri,
+                titulo: p.cancion.titulo,
+                artistas: p.cancion.artistas,
+                album: es_lista.then(|| coleccion.nombre.clone()),
+                pista: es_lista.then_some(posicion),
+                portada: coleccion.portada.clone(),
+                videos: p.videos,
+                guardar,
+            };
+            (datos, posicion)
+        })
+        .collect();
+    descargas.descargar_spotify(canciones, calidad, grupo.clone())?;
+    Ok(grupo)
+}
+
+/// Cancela lo que quede por bajar de una lista (lo que está en cola no llega a arrancar)
+#[tauri::command]
+pub fn cancelar_lista(descargas: Gestor, grupo: String) {
+    descargas.cancelar_lista(&grupo);
 }

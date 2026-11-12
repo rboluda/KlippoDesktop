@@ -4,8 +4,17 @@ const URL = /https?:\/\/[^\s<>"']+/i;
 
 const DOMINIOS_SOPORTADOS = [
   "youtube.com", "youtu.be", "tiktok.com", "x.com", "twitter.com", "instagram.com",
-  "facebook.com", "fb.watch", "fb.com",
+  "facebook.com", "fb.watch", "fb.com", "open.spotify.com", "spotify.link",
 ];
+
+/** ¿Es un enlace de Spotify (open.spotify.com, spotify.link o spotify:tipo:id)? Lo que sea
+ *  exactamente lo decide Rust al leerlo. */
+export function esSpotify(texto: string): boolean {
+  if (/spotify:(playlist|album|track):[a-z0-9]{22}/i.test(texto)) return true;
+  const url = extraerUrl(texto);
+  const h = url ? host(url) : null;
+  return h === "open.spotify.com" || h === "spotify.link";
+}
 
 /** Las apps suelen compartir "Mira este vídeo https://...": se queda solo la URL */
 export function extraerUrl(texto: string | null | undefined): string | null {
@@ -36,5 +45,6 @@ export function plataforma(url: string): string {
   if (es("x.com", "twitter.com")) return "X";
   if (es("instagram.com")) return "Instagram";
   if (es("facebook.com", "fb.watch", "fb.com")) return "Facebook";
+  if (es("open.spotify.com", "spotify.link")) return "Spotify";
   return h.replace(/^www\./, "");
 }

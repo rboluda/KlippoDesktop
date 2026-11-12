@@ -8,7 +8,8 @@
   import DialogoCalidad from "$lib/DialogoCalidad.svelte";
   import { agrupar, descargar, descargas, type Calidad } from "$lib/descargas.svelte";
   import TarjetaLista from "$lib/TarjetaLista.svelte";
-  import { esSoportada, extraerUrl } from "$lib/enlaces";
+  import { goto } from "$app/navigation";
+  import { esSoportada, esSpotify, extraerUrl } from "$lib/enlaces";
   import Icono from "$lib/Icono.svelte";
   import { t } from "$lib/i18n";
   import TarjetaDescarga from "$lib/TarjetaDescarga.svelte";
@@ -105,6 +106,11 @@
 
   function pedirDescarga(evento: SubmitEvent) {
     evento.preventDefault();
+    // spotify:playlist:… no es una URL, pero también vale
+    if (esSpotify(enlace)) {
+      pedir(enlace.trim());
+      return;
+    }
     const url = extraerUrl(enlace);
     if (!url) {
       error = t.noEsEnlace;
@@ -115,6 +121,12 @@
 
   async function pedir(url: string) {
     error = "";
+    // Spotify: su pantalla (canciones, búsqueda en YouTube y descarga), no el diálogo de calidad
+    if (esSpotify(url)) {
+      enlace = "";
+      goto(`/spotify?enlace=${encodeURIComponent(url)}`);
+      return;
+    }
     calidadMarcada = await leer<Calidad>("calidad", "mejor");
     if (await leer("preguntarCalidad", true)) {
       pendiente = url;
