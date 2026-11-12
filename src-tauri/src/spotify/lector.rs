@@ -182,7 +182,7 @@ pub fn interpretar(html: &str, enlace: &EnlaceSpotify) -> Result<(Coleccion, Opt
                 Some(Cancion {
                     posicion: i as u32 + 1,
                     titulo: texto_de(&p["title"])?,
-                    // "Leftfield,\u{a0}DJUM DJUM": comas con espacio duro
+                    // "Los Faros,\u{a0}Nora Vidal": comas con espacio duro
                     artistas: p["subtitle"]
                         .as_str()
                         .unwrap_or_default()
@@ -274,16 +274,16 @@ mod pruebas {
     #[test]
     fn lista_con_artistas_y_portada() {
         let html = embed(
-            r#"{"type":"playlist","name":"WipEout","subtitle":"Oliver","coverArt":{"sources":[{"url":"https://img/lista.jpg"}]},
-               "trackList":[{"uri":"spotify:track:1","title":"Afro Ride","subtitle":"Leftfield, DJUM DJUM","duration":552266},
-                            {"uri":"spotify:track:2","title":"Firestarter","subtitle":"The Prodigy","duration":281000}]}"#,
+            r#"{"type":"playlist","name":"Pista Veloz","subtitle":"Ana","coverArt":{"sources":[{"url":"https://img/lista.jpg"}]},
+               "trackList":[{"uri":"spotify:track:1","title":"Camino de arena","subtitle":"Los Faros, Nora Vidal","duration":552266},
+                            {"uri":"spotify:track:2","title":"Chispa","subtitle":"Los Prodigios","duration":281000}]}"#,
         );
         let enlace = EnlaceSpotify { tipo: Tipo::Playlist, id: "x".repeat(22) };
         let (c, portada) = interpretar(&html, &enlace).unwrap();
-        assert_eq!(c.nombre, "WipEout");
-        assert_eq!(c.autor.as_deref(), Some("Oliver"));
+        assert_eq!(c.nombre, "Pista Veloz");
+        assert_eq!(c.autor.as_deref(), Some("Ana"));
         assert_eq!(c.canciones.len(), 2);
-        assert_eq!(c.canciones[0].artistas, ["Leftfield", "DJUM DJUM"]);
+        assert_eq!(c.canciones[0].artistas, ["Los Faros", "Nora Vidal"]);
         assert_eq!(c.canciones[1].posicion, 2);
         assert_eq!(portada.as_deref(), Some("https://img/lista.jpg"));
     }
@@ -291,12 +291,12 @@ mod pruebas {
     #[test]
     fn cancion_suelta_y_portada_mas_grande() {
         let html = embed(
-            r#"{"type":"track","name":"Pride","uri":"spotify:track:24rv66H94QGVqIXHjA3kn6","artists":[{"name":"U2"}],"duration":228466,
+            r#"{"type":"track","name":"Orgullo","uri":"spotify:track:1234567890abcdefghijkl","artists":[{"name":"Norte"}],"duration":228466,
                "visualIdentity":{"image":[{"maxWidth":300,"url":"https://img/300"},{"maxWidth":640,"url":"https://img/640"},{"maxWidth":64,"url":"https://img/64"}]}}"#,
         );
-        let enlace = EnlaceSpotify { tipo: Tipo::Track, id: "24rv66H94QGVqIXHjA3kn6".into() };
+        let enlace = EnlaceSpotify { tipo: Tipo::Track, id: "1234567890abcdefghijkl".into() };
         let (c, portada) = interpretar(&html, &enlace).unwrap();
-        assert_eq!(c.canciones, [Cancion { posicion: 1, titulo: "Pride".into(), artistas: vec!["U2".into()], duracion_ms: 228466, uri: "spotify:track:24rv66H94QGVqIXHjA3kn6".into() }]);
+        assert_eq!(c.canciones, [Cancion { posicion: 1, titulo: "Orgullo".into(), artistas: vec!["Norte".into()], duracion_ms: 228466, uri: "spotify:track:1234567890abcdefghijkl".into() }]);
         assert_eq!(portada.as_deref(), Some("https://img/640"));
         assert_eq!(c.autor, None);
     }

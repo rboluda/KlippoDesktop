@@ -1279,12 +1279,12 @@ mod pruebas {
         let ruta = std::env::temp_dir().join(format!("klippo-titulos-{}.txt", std::process::id()));
         fs::write(
             &ruta,
-            "C:\\x\\video-1.m4a\tZelda OST\tSong of Storms\nC:\\x\\video-2.m4a\tZelda OST\tLost Woods\nC:\\x\\video.mp4\tNA\tSolo\n",
+            "C:\\x\\video-1.m4a\tBanda sonora\tCanción de lluvia\nC:\\x\\video-2.m4a\tBanda sonora\tBosque perdido\nC:\\x\\video.mp4\tNA\tSolo\n",
         )
         .unwrap();
         let datos = leer_titulos(&ruta);
-        assert_eq!(datos["video-1"], (Some("Zelda OST".into()), Some("Song of Storms".into())));
-        assert_eq!(datos["video-2"].1.as_deref(), Some("Lost Woods"));
+        assert_eq!(datos["video-1"], (Some("Banda sonora".into()), Some("Canción de lluvia".into())));
+        assert_eq!(datos["video-2"].1.as_deref(), Some("Bosque perdido"));
         assert_eq!(datos["video"], (None, Some("Solo".into())));
         fs::remove_file(ruta).unwrap();
     }
@@ -1293,8 +1293,8 @@ mod pruebas {
     fn titulo_y_artista_para_plex() {
         let mut datos = DatosSpotify {
             uri: "spotify:track:x".into(),
-            titulo: "Afro Ride".into(),
-            artistas: vec!["Leftfield".into(), "DJUM DJUM".into()],
+            titulo: "Camino de arena".into(),
+            artistas: vec!["Los Faros".into(), "Nora Vidal".into()],
             album: None,
             pista: None,
             portada: None,
@@ -1304,21 +1304,21 @@ mod pruebas {
             fecha: None,
             artista_album: None,
         };
-        assert_eq!(titulo_y_artista_plex(&datos), ("Afro Ride (feat. DJUM DJUM)".into(), "Leftfield".into()));
-        datos.titulo = "Run (feat. Eva Lazarus)".into();
-        datos.artistas = vec!["Dub FX".into(), "Eva Lazarus".into()];
-        assert_eq!(titulo_y_artista_plex(&datos), ("Run (feat. Eva Lazarus)".into(), "Dub FX".into()));
-        datos.artistas = vec!["Fluke".into()];
-        datos.titulo = "Absurd".into();
-        assert_eq!(titulo_y_artista_plex(&datos), ("Absurd".into(), "Fluke".into()));
+        assert_eq!(titulo_y_artista_plex(&datos), ("Camino de arena (feat. Nora Vidal)".into(), "Los Faros".into()));
+        datos.titulo = "Correr (feat. Lía Montes)".into();
+        datos.artistas = vec!["Marea Baja".into(), "Lía Montes".into()];
+        assert_eq!(titulo_y_artista_plex(&datos), ("Correr (feat. Lía Montes)".into(), "Marea Baja".into()));
+        datos.artistas = vec!["Prisma".into()];
+        datos.titulo = "Absurdo".into();
+        assert_eq!(titulo_y_artista_plex(&datos), ("Absurdo".into(), "Prisma".into()));
     }
 
     #[test]
     fn nombre_del_archivo_con_la_pista() {
         let mut datos = DatosSpotify {
             uri: "spotify:track:x".into(),
-            titulo: "Sesi".into(),
-            artistas: vec!["Mojinos Escozios".into()],
+            titulo: "Siesta".into(),
+            artistas: vec!["Los Tejados".into()],
             album: Some("Semos unos monstruos".into()),
             pista: Some(4),
             portada: None,
@@ -1328,10 +1328,10 @@ mod pruebas {
             fecha: None,
             artista_album: None,
         };
-        assert_eq!(datos.nombre_archivo(), "04 - Mojinos Escozios - Sesi");
+        assert_eq!(datos.nombre_archivo(), "04 - Los Tejados - Siesta");
         datos.pista = Some(100);
-        assert_eq!(datos.nombre_archivo(), "100 - Mojinos Escozios - Sesi");
+        assert_eq!(datos.nombre_archivo(), "100 - Los Tejados - Siesta");
         datos.pista = None;
-        assert_eq!(datos.nombre_archivo(), "Mojinos Escozios - Sesi");
+        assert_eq!(datos.nombre_archivo(), "Los Tejados - Siesta");
     }
 }

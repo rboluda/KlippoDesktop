@@ -32,7 +32,7 @@ fn es_morralla(segmento: &str) -> bool {
 }
 
 /// "Official Video Remastered" → "Remastered": la morralla de los extremos (sin tocar "with",
-/// "con" ni "en", que en "(with Eva Lazarus)" sí cuentan)
+/// "con" ni "en", que en "(with Lía Montes)" sí cuentan)
 fn quitar_bordes(segmento: &str) -> String {
     let fuerte = |p: &str| {
         let p = p.to_lowercase();
@@ -45,7 +45,7 @@ fn quitar_bordes(segmento: &str) -> String {
 }
 
 /// Quita del título los paréntesis o corchetes de morralla ("(Official Video)", "[HD]") y, dentro
-/// de los que tienen algo útil, solo la morralla: "(Live 2007 - Official Audio)" → "(Live 2007)"
+/// de los que tienen algo útil, solo la morralla: "(Live 2030 - Official Audio)" → "(Live 2030)"
 pub fn limpiar(titulo: &str) -> String {
     let mut resultado = String::new();
     let mut resto = titulo;
@@ -125,8 +125,8 @@ fn quitar_comillas(t: &str) -> String {
     t.to_string()
 }
 
-/// Nombre del álbum a partir del título de la lista: "Album - Discovery" (YouTube Music) →
-/// "Discovery"; "Daft Punk - Alive 2007 (Full Album)" → "Alive 2007" si el artista es Daft Punk
+/// Nombre del álbum a partir del título de la lista: "Album - Descubrimiento" (YouTube Music) →
+/// "Descubrimiento"; "Robots de Lata - En vivo 2030 (Full Album)" → "En vivo 2030" si el artista es Robots de Lata
 pub fn album_de_la_lista(titulo_lista: &str, artista: &str) -> String {
     let mut titulo = titulo_lista.trim();
     for prefijo in ["Album - ", "Álbum - ", "EP - ", "Single - ", "Sencillo - "] {
@@ -162,37 +162,37 @@ mod pruebas {
 
     #[test]
     fn limpiar_titulos() {
-        assert_eq!(limpiar("Robot Rock / Oh Yeah (Live 2007 - Official Audio)"), "Robot Rock / Oh Yeah (Live 2007)");
-        assert_eq!(limpiar("Around the World (Official Music Video) [HD]"), "Around the World");
-        assert_eq!(limpiar("Get Lucky (Radio Edit) [Official Video]"), "Get Lucky (Radio Edit)");
-        assert_eq!(limpiar("Sesi (Videoclip Oficial) | Mojinos Escozios"), "Sesi");
-        assert_eq!(limpiar("One More Time"), "One More Time");
+        assert_eq!(limpiar("Motor / Sí señor (Live 2030 - Official Audio)"), "Motor / Sí señor (Live 2030)");
+        assert_eq!(limpiar("Vuelta al mundo (Official Music Video) [HD]"), "Vuelta al mundo");
+        assert_eq!(limpiar("Buena suerte (Radio Edit) [Official Video]"), "Buena suerte (Radio Edit)");
+        assert_eq!(limpiar("Siesta (Videoclip Oficial) | Los Tejados"), "Siesta");
+        assert_eq!(limpiar("Otra vez más"), "Otra vez más");
         assert_eq!(limpiar("Song (Remastered 2011)"), "Song (Remastered 2011)");
         assert_eq!(limpiar("Song 【Official Lyric Video】"), "Song");
     }
 
     #[test]
     fn deducir_artista_y_titulo() {
-        let d = deducir("Daft Punk - Robot Rock / Oh Yeah (Live 2007 - Official Audio)", Some("Daft Punk"), false);
-        assert_eq!(d, Deducidas { artista: "Daft Punk".into(), titulo: "Robot Rock / Oh Yeah (Live 2007)".into(), fiable: false });
-        let d = deducir("One More Time", Some("Daft Punk"), true);
-        assert_eq!(d, Deducidas { artista: "Daft Punk".into(), titulo: "One More Time".into(), fiable: true });
-        let d = deducir("Absurd", Some("Fluke - Topic"), false);
-        assert_eq!(d, Deducidas { artista: "Fluke".into(), titulo: "Absurd".into(), fiable: true });
-        let d = deducir("Bohemian Rhapsody (Official Video Remastered)", Some("Queen Official"), false);
-        assert_eq!(d.artista, "Queen");
-        assert_eq!(d.titulo, "Bohemian Rhapsody (Remastered)");
-        let d = deducir("Adele – \"Hello\" (Official Video)", None, false);
-        assert_eq!((d.artista.as_str(), d.titulo.as_str()), ("Adele", "Hello"));
+        let d = deducir("Robots de Lata - Motor / Sí señor (Live 2030 - Official Audio)", Some("Robots de Lata"), false);
+        assert_eq!(d, Deducidas { artista: "Robots de Lata".into(), titulo: "Motor / Sí señor (Live 2030)".into(), fiable: false });
+        let d = deducir("Otra vez más", Some("Robots de Lata"), true);
+        assert_eq!(d, Deducidas { artista: "Robots de Lata".into(), titulo: "Otra vez más".into(), fiable: true });
+        let d = deducir("Absurdo", Some("Prisma - Topic"), false);
+        assert_eq!(d, Deducidas { artista: "Prisma".into(), titulo: "Absurdo".into(), fiable: true });
+        let d = deducir("Rapsodia de papel (Official Video Remastered)", Some("Corona Official"), false);
+        assert_eq!(d.artista, "Corona");
+        assert_eq!(d.titulo, "Rapsodia de papel (Remastered)");
+        let d = deducir("Alba – \"Hola\" (Official Video)", None, false);
+        assert_eq!((d.artista.as_str(), d.titulo.as_str()), ("Alba", "Hola"));
     }
 
     #[test]
     fn album_y_artista_del_album() {
-        assert_eq!(album_de_la_lista("Album - Discovery", "Daft Punk"), "Discovery");
-        assert_eq!(album_de_la_lista("Daft Punk - Alive 2007 (Full Album)", "Daft Punk"), "Alive 2007");
+        assert_eq!(album_de_la_lista("Album - Descubrimiento", "Robots de Lata"), "Descubrimiento");
+        assert_eq!(album_de_la_lista("Robots de Lata - En vivo 2030 (Full Album)", "Robots de Lata"), "En vivo 2030");
         assert_eq!(album_de_la_lista("Mis canciones de verano", "Varios"), "Mis canciones de verano");
-        let unos = vec!["Daft Punk".to_string(); 9].into_iter().chain(["Todd Edwards".to_string()]).collect::<Vec<_>>();
-        assert_eq!(artista_del_album(&unos), "Daft Punk");
+        let unos = vec!["Robots de Lata".to_string(); 9].into_iter().chain(["Pablo Ríos".to_string()]).collect::<Vec<_>>();
+        assert_eq!(artista_del_album(&unos), "Robots de Lata");
         let mezcla = vec!["A".to_string(), "B".into(), "C".into(), "A".into()];
         assert_eq!(artista_del_album(&mezcla), VARIOS);
     }

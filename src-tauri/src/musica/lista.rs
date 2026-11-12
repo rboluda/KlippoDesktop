@@ -177,26 +177,26 @@ mod pruebas {
     #[test]
     fn lista_normal_y_album() {
         let json: Value = serde_json::from_str(
-            r#"{"id":"PL1","title":"Daft Punk - Alive 2007 (Full Album)","playlist_count":3,"entries":[
-              {"id":"a","title":"Daft Punk - Robot Rock / Oh Yeah (Live 2007 - Official Audio)","channel":"Daft Punk","duration":388},
+            r#"{"id":"PL1","title":"Robots de Lata - En vivo 2030 (Full Album)","playlist_count":3,"entries":[
+              {"id":"a","title":"Robots de Lata - Motor / Sí señor (Live 2030 - Official Audio)","channel":"Robots de Lata","duration":388},
               {"id":"b","title":"[Private video]","channel":null},
-              {"id":"c","title":"Daft Punk - Touch It / Technologic (Live 2007 - Official Audio)","channel":"Daft Punk","duration":330}]}"#,
+              {"id":"c","title":"Robots de Lata - Tócalo / Tecnología (Live 2030 - Official Audio)","channel":"Robots de Lata","duration":330}]}"#,
         )
         .unwrap();
         let l = interpretar(&json).unwrap();
         assert_eq!(l.canciones.len(), 2);
         assert_eq!(l.canciones[1].posicion, 2);
-        assert_eq!(l.album, "Alive 2007");
-        assert_eq!(l.artista_album, "Daft Punk");
+        assert_eq!(l.album, "En vivo 2030");
+        assert_eq!(l.artista_album, "Robots de Lata");
         assert!(!l.es_album);
 
         let json: Value = serde_json::from_str(
-            r#"{"id":"OLAK5uy_x","title":"Album - Discovery","entries":[
-              {"id":"a","title":"One More Time","channel":"Daft Punk","duration":321}]}"#,
+            r#"{"id":"OLAK5uy_x","title":"Album - Descubrimiento","entries":[
+              {"id":"a","title":"Otra vez más","channel":"Robots de Lata","duration":321}]}"#,
         )
         .unwrap();
         let l = interpretar(&json).unwrap();
         assert!(l.es_album && l.canciones[0].fiable);
-        assert_eq!((l.album.as_str(), l.canciones[0].titulo.as_str()), ("Discovery", "One More Time"));
+        assert_eq!((l.album.as_str(), l.canciones[0].titulo.as_str()), ("Descubrimiento", "Otra vez más"));
     }
 }

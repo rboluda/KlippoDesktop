@@ -197,15 +197,15 @@ mod pruebas {
     #[test]
     fn resultados_sin_directos() {
         let json: Value = serde_json::from_str(
-            r#"{"id":"U2 - Pride","entries":[
-                {"id":"a","title":"U2 - Pride","duration":228.0,"channel":"U2VEVO","live_status":"not_live"},
-                {"id":"b","title":"U2 en directo ahora","duration":null,"uploader":"Radio","live_status":"is_live"},
-                {"id":"c","title":"Pride","duration":229,"uploader":"U2 - Topic"}]}"#,
+            r#"{"id":"Norte - Orgullo","entries":[
+                {"id":"a","title":"Norte - Orgullo","duration":228.0,"channel":"NorteVEVO","live_status":"not_live"},
+                {"id":"b","title":"Norte en directo ahora","duration":null,"uploader":"Radio","live_status":"is_live"},
+                {"id":"c","title":"Orgullo","duration":229,"uploader":"Norte - Topic"}]}"#,
         )
         .unwrap();
         let r = leer_resultados(&json);
         assert_eq!(r.len(), 2);
-        assert_eq!(r[1].canal.as_deref(), Some("U2 - Topic"));
+        assert_eq!(r[1].canal.as_deref(), Some("Norte - Topic"));
         assert_eq!(r[1].duracion, Some(229.0));
     }
 

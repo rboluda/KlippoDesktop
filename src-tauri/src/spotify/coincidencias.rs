@@ -244,23 +244,23 @@ mod pruebas {
 
     #[test]
     fn identica_con_canal_topic() {
-        let c = cancion("Firestarter", &["The Prodigy"], 281);
-        let (g, _) = puntuar(&c, &video("Firestarter", "The Prodigy - Topic", Some(282.0)));
+        let c = cancion("Chispa", &["Los Prodigios"], 281);
+        let (g, _) = puntuar(&c, &video("Chispa", "Los Prodigios - Topic", Some(282.0)));
         assert_eq!(g, Grado::Identica);
     }
 
     #[test]
     fn videoclip_con_intro_larga_sale_parecida() {
-        let c = cancion("Bitter Sweet Symphony", &["The Verve"], 358);
-        let (g, _) = puntuar(&c, &video("The Verve - Bitter Sweet Symphony (Official Music Video)", "TheVerveVEVO", Some(404.0)));
+        let c = cancion("Sinfonía agridulce", &["La Vena"], 358);
+        let (g, _) = puntuar(&c, &video("La Vena - Sinfonía agridulce (Official Music Video)", "LaVenaVEVO", Some(404.0)));
         assert_eq!(g, Grado::Parecida);
     }
 
     #[test]
     fn entre_dos_se_prefiere_la_de_igual_duracion() {
-        let c = cancion("Bitter Sweet Symphony", &["The Verve"], 358);
-        let clip = video("The Verve - Bitter Sweet Symphony (Official Video)", "TheVerveVEVO", Some(404.0));
-        let audio = video("Bitter Sweet Symphony", "The Verve - Topic", Some(358.0));
+        let c = cancion("Sinfonía agridulce", &["La Vena"], 358);
+        let clip = video("La Vena - Sinfonía agridulce (Official Video)", "LaVenaVEVO", Some(404.0));
+        let audio = video("Sinfonía agridulce", "La Vena - Topic", Some(358.0));
         let elegida = elegir(&c, &[clip.clone(), audio.clone()]);
         assert_eq!(elegida.elegido, Some(audio));
         assert_eq!(elegida.grado, Grado::Identica);
@@ -269,42 +269,42 @@ mod pruebas {
 
     #[test]
     fn otras_versiones_penalizadas_salvo_que_spotify_lo_diga() {
-        let c = cancion("Wonderwall", &["Oasis"], 258);
-        for titulo in ["Oasis - Wonderwall (Live at Knebworth)", "Wonderwall cover Oasis", "Oasis Wonderwall Karaoke", "Oasis - Wonderwall en directo"] {
+        let c = cancion("Pared de cristal", &["Espejismo"], 258);
+        for titulo in ["Espejismo - Pared de cristal (Live at Teatro Sur)", "Pared de cristal cover Espejismo", "Espejismo Pared de cristal Karaoke", "Espejismo - Pared de cristal en directo"] {
             let (g, p) = puntuar(&c, &video(titulo, "Alguien", Some(258.0)));
             assert_ne!(g, Grado::Identica, "{titulo}");
-            assert!(p < puntuar(&c, &video("Oasis - Wonderwall", "Oasis", Some(258.0))).1, "{titulo}");
+            assert!(p < puntuar(&c, &video("Espejismo - Pared de cristal", "Espejismo", Some(258.0))).1, "{titulo}");
         }
-        let en_directo = cancion("Wonderwall - Live", &["Oasis"], 258);
-        assert_eq!(puntuar(&en_directo, &video("Oasis - Wonderwall (Live)", "Oasis", Some(258.0))).0, Grado::Identica);
+        let en_directo = cancion("Pared de cristal - Live", &["Espejismo"], 258);
+        assert_eq!(puntuar(&en_directo, &video("Espejismo - Pared de cristal (Live)", "Espejismo", Some(258.0))).0, Grado::Identica);
     }
 
     #[test]
     fn se_ignoran_feat_y_remaster() {
-        assert_eq!(titulo_base("Señorita (feat. Camila Cabello)"), "Señorita");
-        assert_eq!(titulo_base("Under Pressure - Remastered 2011"), "Under Pressure");
-        assert_eq!(titulo_base("Heroes (2017 Remaster)"), "Heroes");
-        assert_eq!(titulo_base("Song 2 - Radio Edit"), "Song 2");
-        assert_eq!(titulo_base("Help! - Mono"), "Help!");
-        assert_eq!(titulo_base("Stay (with Justin Bieber)"), "Stay");
-        assert_eq!(titulo_base("Pride (In The Name Of Love)"), "Pride (In The Name Of Love)");
-        let c = cancion("Under Pressure - Remastered 2011", &["Queen", "David Bowie"], 248);
-        assert_eq!(consulta(&c), "Queen - Under Pressure");
-        assert_eq!(puntuar(&c, &video("Queen & David Bowie - Under Pressure", "Queen Official", Some(249.0))).0, Grado::Identica);
+        assert_eq!(titulo_base("Señorita (feat. Clara Brisa)"), "Señorita");
+        assert_eq!(titulo_base("Bajo presión - Remastered 2011"), "Bajo presión");
+        assert_eq!(titulo_base("Héroes (2017 Remaster)"), "Héroes");
+        assert_eq!(titulo_base("Canción 2 - Radio Edit"), "Canción 2");
+        assert_eq!(titulo_base("¡Socorro! - Mono"), "¡Socorro!");
+        assert_eq!(titulo_base("Quédate (with Mario Lluvia)"), "Quédate");
+        assert_eq!(titulo_base("Orgullo (En nombre del amor)"), "Orgullo (En nombre del amor)");
+        let c = cancion("Bajo presión - Remastered 2011", &["Corona", "Luis Cielo"], 248);
+        assert_eq!(consulta(&c), "Corona - Bajo presión");
+        assert_eq!(puntuar(&c, &video("Corona & Luis Cielo - Bajo presión", "Corona Official", Some(249.0))).0, Grado::Identica);
     }
 
     #[test]
     fn tildes_y_mayusculas_dan_igual() {
         assert_eq!(normalizar("Canción DEL Verano & Más"), "cancion del verano and mas");
-        let c = cancion("Despacito", &["Luis Fonsi"], 229);
-        assert_eq!(puntuar(&c, &video("LUIS FONSI - DESPACITO", "LuisFonsiVEVO", Some(230.0))).0, Grado::Identica);
-        let otra = cancion("La Bicicleta", &["Carlos Vives", "Shakira"], 228);
-        assert_eq!(puntuar(&otra, &video("Carlos Vives, Shakira - La Bicicleta", "CarlosVivesVEVO", Some(229.0))).0, Grado::Identica);
+        let c = cancion("Despacio", &["Mario Lluvia"], 229);
+        assert_eq!(puntuar(&c, &video("MARIO LLUVIA - DESPACIO", "MarioLluviaVEVO", Some(230.0))).0, Grado::Identica);
+        let otra = cancion("La Barca", &["Pedro Mar", "Luna"], 228);
+        assert_eq!(puntuar(&otra, &video("Pedro Mar, Luna - La Barca", "PedroMarVEVO", Some(229.0))).0, Grado::Identica);
     }
 
     #[test]
     fn sin_resultados_o_sin_parecido() {
-        let c = cancion("Firestarter", &["The Prodigy"], 281);
+        let c = cancion("Chispa", &["Los Prodigios"], 281);
         assert_eq!(elegir(&c, &[]).grado, Grado::NoEncontrada);
         let nada = elegir(&c, &[video("Recetas de cocina fáciles", "Cocina", Some(600.0))]);
         assert_eq!(nada.grado, Grado::NoEncontrada);

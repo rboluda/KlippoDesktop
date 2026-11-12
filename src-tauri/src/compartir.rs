@@ -157,7 +157,7 @@ mod pruebas {
 
     #[test]
     fn nombres_validos_en_windows() {
-        assert_eq!(nombre_valido("AC/DC: Back in Black?", "x"), "AC DC Back in Black");
+        assert_eq!(nombre_valido("CA/CC: Negro sobre negro?", "x"), "CA CC Negro sobre negro");
         assert_eq!(nombre_valido("  ..The Memes Of 2010s.....  ", "x"), "The Memes Of 2010s");
         assert_eq!(nombre_valido("a\tb\nc   d", "x"), "a b c d");
         assert_eq!(nombre_valido("con", "x"), "con_");

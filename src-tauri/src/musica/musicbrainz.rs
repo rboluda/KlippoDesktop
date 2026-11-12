@@ -147,7 +147,7 @@ fn consulta(campo: &str, valor: &str, artista: &str) -> String {
     codificar(&q)
 }
 
-/// "Daft Punk feat. Pharrell Williams": nombres y uniones del crédito
+/// "Robots de Lata feat. Ana Sol": nombres y uniones del crédito
 fn credito(v: &Value) -> String {
     v.as_array()
         .map(|a| a.iter().map(|c| format!("{}{}", c["name"].as_str().unwrap_or(""), c["joinphrase"].as_str().unwrap_or(""))).collect::<String>())
@@ -286,9 +286,9 @@ mod pruebas {
 
     #[test]
     fn consultas() {
-        assert_eq!(consulta("release", "Alive 2007", "Daft Punk"), "release%3A%22Alive%202007%22%20AND%20artist%3A%22Daft%20Punk%22");
+        assert_eq!(consulta("release", "Live 2030", "Tin Robots"), "release%3A%22Live%202030%22%20AND%20artist%3A%22Tin%20Robots%22");
         assert_eq!(consulta("release", "Mix \"verano\"", "Various Artists"), "release%3A%22Mix%20%20verano%22");
-        let v: Value = serde_json::from_str(r#"[{"name":"Daft Punk","joinphrase":" feat. "},{"name":"Pharrell Williams","joinphrase":""}]"#).unwrap();
-        assert_eq!(credito(&v), "Daft Punk feat. Pharrell Williams");
+        let v: Value = serde_json::from_str(r#"[{"name":"Robots de Lata","joinphrase":" feat. "},{"name":"Ana Sol","joinphrase":""}]"#).unwrap();
+        assert_eq!(credito(&v), "Robots de Lata feat. Ana Sol");
     }
 }
