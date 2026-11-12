@@ -37,6 +37,20 @@ same idea, the same colors and everything learned there about each platform.
   playlist takes a single card with **Save all** (`Downloads\Klippo\<playlist>\`, each file
   named after its title), **Share**, **Copy** and **WhatsApp** for all of them at once; "Show
   one by one" expands it. If a video is private or deleted, the rest are still downloaded.
+- **YouTube playlists as songs**: if you choose **Audio only** (M4A or MP3) for a playlist,
+  Klippo treats it as music. YouTube Music links (`music.youtube.com` or `OLAK5uy_…` albums)
+  already suggest audio. A screen opens with the tags Klippo thinks are right, so you can check
+  them before downloading:
+  - Album, album artist, year and cover (square; you can use your own image).
+  - Each song's artist and title, editable, with "⇄" to swap them and "Same artist for all".
+    Each row shows where they come from: **YouTube Music** (reliable), **Guessed** (from the
+    video title, worth a look), **MusicBrainz** or **By hand**.
+  - **Search the album on MusicBrainz** fills in album, artist, date, a large cover and the song
+    titles; the magnifier on each row searches that song.
+  - Then, just like Spotify: two at a time, a card with the progress, "Save when finished",
+    "Prepare tags for Plexamp" and files named `04 - Artist - Title`.
+
+  If you choose video, the playlist is downloaded as before.
 - **From Spotify**: paste (or drag, or send with the bookmark) a Spotify playlist, album or
   song link. Klippo reads its songs without an account, searches each one on YouTube and tells
   you whether the match is **identical** (same title, artist and length), **similar** or not
@@ -109,7 +123,9 @@ published here.
 No ads, no analytics, no accounts, no welcome screens. Klippo only connects to download the
 video you ask for, to update its engine when you ask, and once a day to check for a new
 version (can be turned off). It only connects to Spotify when you paste or share a Spotify
-link, to read that playlist and its cover.
+link, to read that playlist and its cover. It only contacts MusicBrainz (and Cover Art Archive,
+its covers) when you press search on a song-list screen: it sends the searched text and
+Klippo's name, nothing about you.
 
 ## Building
 

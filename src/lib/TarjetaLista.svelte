@@ -41,7 +41,9 @@
   );
   const cuantos = $derived(
     terminadas.length === validas.length
-      ? formato(sonAudio ? t.canciones : t.videos, terminadas.length)
+      ? terminadas.length === 1
+        ? sonAudio ? t.unaCancion : t.unVideo
+        : formato(sonAudio ? t.canciones : t.videos, terminadas.length)
       : formato(t.descargadasDe, terminadas.length, validas.length),
   );
   const todasGuardadas = $derived(terminadas.length > 0 && terminadas.every((d) => d.guardado));
@@ -71,7 +73,7 @@
     <div class="cuerpo">
       <p class="titulo" title={nombre}>{nombre}</p>
       <p class="detalle">
-        {[primero.spotify ? "Spotify" : plataforma(primero.url), cuantos].join(" · ")}
+        {[primero.spotify?.uri.startsWith("spotify:") ? "Spotify" : plataforma(primero.url), cuantos].join(" · ")}
         {#if conError > 0}
           · <span class="error">{formato(t.conError, conError)}</span>
         {/if}

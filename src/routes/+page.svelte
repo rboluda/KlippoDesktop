@@ -9,7 +9,7 @@
   import { agrupar, descargar, descargas, type Calidad } from "$lib/descargas.svelte";
   import TarjetaLista from "$lib/TarjetaLista.svelte";
   import { goto } from "$app/navigation";
-  import { esSoportada, esSpotify, extraerUrl } from "$lib/enlaces";
+  import { esListaDeYoutube, esMusicaDeYoutube, esSoportada, esSpotify, extraerUrl } from "$lib/enlaces";
   import Icono from "$lib/Icono.svelte";
   import { t } from "$lib/i18n";
   import TarjetaDescarga from "$lib/TarjetaDescarga.svelte";
@@ -128,6 +128,8 @@
       return;
     }
     calidadMarcada = await leer<Calidad>("calidad", "mejor");
+    // YouTube Music o un álbum: lo normal es querer el audio
+    if (esMusicaDeYoutube(url) && calidadMarcada !== "audio" && calidadMarcada !== "mp3") calidadMarcada = "audio";
     if (await leer("preguntarCalidad", true)) {
       pendiente = url;
     } else {
@@ -138,6 +140,12 @@
   async function empezar(url: string, calidad: Calidad) {
     // La elegida queda marcada para la próxima
     guardar("calidad", calidad);
+    // Una lista de YouTube en audio son canciones: su pantalla, con las etiquetas para revisar
+    if ((calidad === "audio" || calidad === "mp3") && esListaDeYoutube(url)) {
+      enlace = "";
+      goto(`/musica?enlace=${encodeURIComponent(url)}&calidad=${calidad}`);
+      return;
+    }
     try {
       await descargar(url, calidad);
       enlace = "";

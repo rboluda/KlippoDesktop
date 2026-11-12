@@ -30,6 +30,36 @@ function host(url: string): string | null {
   }
 }
 
+function esDeYoutube(h: string | null): boolean {
+  return h !== null && ["youtube.com", "youtu.be"].some((d) => h === d || h.endsWith(`.${d}`));
+}
+
+/** ¿Es un enlace que es solo una lista de YouTube (youtube.com/playlist?list=… o un álbum de
+ *  YouTube Music, music.youtube.com/browse/MPREb_…)? Igual que enlaces::es_solo_lista en Rust. */
+export function esListaDeYoutube(url: string): boolean {
+  try {
+    const u = new globalThis.URL(url);
+    if (!esDeYoutube(u.hostname.toLowerCase())) return false;
+    const ruta = u.pathname.replace(/\/+$/, "").toLowerCase();
+    if (ruta === "/playlist") return (u.searchParams.get("list") ?? "").length > 0;
+    return ruta.startsWith("/browse/mpreb_");
+  } catch {
+    return false;
+  }
+}
+
+/** ¿Es claramente música (YouTube Music o una lista de álbum OLAK5uy_…)? Se propone «Solo audio». */
+export function esMusicaDeYoutube(url: string): boolean {
+  try {
+    const u = new globalThis.URL(url);
+    const h = u.hostname.toLowerCase();
+    if (!esDeYoutube(h)) return false;
+    return h === "music.youtube.com" || (u.searchParams.get("list") ?? "").startsWith("OLAK5uy_");
+  } catch {
+    return false;
+  }
+}
+
 /** ¿Es de una de las plataformas conocidas? */
 export function esSoportada(url: string): boolean {
   const h = host(url);

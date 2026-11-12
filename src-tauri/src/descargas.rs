@@ -133,6 +133,12 @@ pub struct DatosSpotify {
     /// Etiquetas preparadas para Plex / Plexamp (si se marcó la casilla)
     #[serde(default)]
     pub plex: Option<DatosPlex>,
+    /// Fecha o año del disco escrito por el usuario o sacado de MusicBrainz (listas de YouTube)
+    #[serde(default)]
+    pub fecha: Option<String>,
+    /// Artista del álbum escrito por el usuario (sin la casilla de Plex también se guarda)
+    #[serde(default)]
+    pub artista_album: Option<String>,
 }
 
 /// Lo que Plex necesita para clasificar bien: agrupa los álbumes por "artista del álbum" +
@@ -1132,7 +1138,9 @@ fn etiquetar(motor: &Motor, archivo: &Path, datos: &DatosSpotify) {
     let temporal = archivo.with_extension(format!("etiquetado.{ext}"));
     let portada = datos.portada.as_ref().filter(|p| p.exists());
     // Para Plex, el año (una petición pequeña a Spotify por canción)
-    let fecha = datos.plex.as_ref().and_then(|_| crate::spotify::lector::fecha(&datos.uri));
+    let fecha = datos.fecha.clone().filter(|f| !f.trim().is_empty()).or_else(|| {
+        datos.plex.as_ref().filter(|_| datos.uri.starts_with("spotify:")).and_then(|_| crate::spotify::lector::fecha(&datos.uri))
+    });
     let intentar = |con_portada: bool| -> bool {
         let mut comando = motor.ffmpeg();
         comando.args(["-v", "error", "-y", "-i"]).arg(archivo);
@@ -1151,6 +1159,12 @@ fn etiquetar(motor: &Motor, archivo: &Path, datos: &DatosSpotify) {
             None => {
                 etiqueta("title", &datos.titulo);
                 etiqueta("artist", &datos.artistas.join(", "));
+                if let Some(a) = datos.artista_album.as_deref().filter(|a| !a.trim().is_empty()) {
+                    etiqueta("album_artist", a);
+                }
+                if let Some(fecha) = &fecha {
+                    etiqueta("date", fecha);
+                }
             }
             Some(plex) => {
                 let (titulo, artista) = titulo_y_artista_plex(datos);
@@ -1287,6 +1301,8 @@ mod pruebas {
             videos: vec![],
             guardar: false,
             plex: None,
+            fecha: None,
+            artista_album: None,
         };
         assert_eq!(titulo_y_artista_plex(&datos), ("Afro Ride (feat. DJUM DJUM)".into(), "Leftfield".into()));
         datos.titulo = "Run (feat. Eva Lazarus)".into();
@@ -1309,6 +1325,8 @@ mod pruebas {
             videos: vec![],
             guardar: true,
             plex: None,
+            fecha: None,
+            artista_album: None,
         };
         assert_eq!(datos.nombre_archivo(), "04 - Mojinos Escozios - Sesi");
         datos.pista = Some(100);

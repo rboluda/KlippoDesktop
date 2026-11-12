@@ -425,11 +425,130 @@ pub fn descargar_spotify(
                 }),
                 videos: p.videos,
                 guardar,
+                fecha: None,
+                artista_album: None,
             };
             (datos, posicion)
         })
         .collect();
     descargas.descargar_spotify(canciones, calidad, grupo.clone())?;
+    Ok(grupo)
+}
+
+// ---- Listas de YouTube como canciones ----
+
+/// Lee una lista de YouTube y deduce las etiquetas de cada vídeo
+#[tauri::command]
+pub async fn leer_lista_musica(descargas: Gestor<'_>, enlace: String) -> Result<crate::musica::lista::ListaYoutube, String> {
+    let motor = descargas.motor()?;
+    tauri::async_runtime::spawn_blocking(move || crate::musica::lista::leer(&motor, &enlace))
+        .await
+        .map_err(texto_error_hilo)?
+}
+
+/// Álbumes de MusicBrainz que encajan
+#[tauri::command]
+pub async fn buscar_album_mb(artista: String, album: String) -> Result<Vec<crate::musica::musicbrainz::Lanzamiento>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::musica::musicbrainz::buscar_albumes(&artista, &album))
+        .await
+        .map_err(texto_error_hilo)?
+}
+
+/// Un álbum de MusicBrainz con sus pistas y su portada
+#[tauri::command]
+pub async fn leer_album_mb(id: String) -> Result<crate::musica::musicbrainz::AlbumMb, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::musica::musicbrainz::leer_album(&id)).await.map_err(texto_error_hilo)?
+}
+
+/// Grabaciones de MusicBrainz para una canción
+#[tauri::command]
+pub async fn buscar_cancion_mb(
+    artista: String,
+    titulo: String,
+    duracion: Option<f64>,
+) -> Result<Vec<crate::musica::musicbrainz::GrabacionMb>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::musica::musicbrainz::buscar_cancion(&artista, &titulo, duracion))
+        .await
+        .map_err(texto_error_hilo)?
+}
+
+/// Una imagen elegida por el usuario como portada: copia cuadrada en la carpeta temporal
+#[tauri::command]
+pub async fn portada_propia(descargas: Gestor<'_>, ruta: PathBuf) -> Result<PathBuf, String> {
+    let motor = descargas.motor()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let carpeta = spotify::lector::carpeta();
+        std::fs::create_dir_all(&carpeta).map_err(texto_error_hilo)?;
+        let ahora = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+        crate::musica::lista::recortar_cuadrada(&motor, &ruta, &carpeta.join(format!("propia-{ahora}.jpg")))
+    })
+    .await
+    .map_err(texto_error_hilo)?
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlbumYoutube {
+    id: String,
+    album: String,
+    artista_album: String,
+    fecha: Option<String>,
+    portada: Option<PathBuf>,
+    total: u32,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancionPedida {
+    posicion: u32,
+    id: String,
+    video: String,
+    artista: String,
+    titulo: String,
+}
+
+/// Pone en cola canciones de una lista de YouTube con las etiquetas del formulario. Mismo
+/// camino que las de Spotify: grupo "musica-<id>-<momento>", 2 a la vez, etiquetas con FFmpeg.
+#[tauri::command]
+pub fn descargar_musica_youtube(
+    descargas: Gestor,
+    album: AlbumYoutube,
+    canciones: Vec<CancionPedida>,
+    calidad: Calidad,
+    guardar: bool,
+    plex: bool,
+    grupo: Option<String>,
+) -> Result<String, String> {
+    let grupo = grupo.unwrap_or_else(|| {
+        let ahora = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+        format!("musica-{}-{ahora}", album.id)
+    });
+    let artista_album = album.artista_album.trim().to_string();
+    let nombre_album = Some(album.album.trim().to_string()).filter(|a| !a.is_empty()).unwrap_or_else(|| "YouTube".into());
+    let canciones = canciones
+        .into_iter()
+        .map(|c| {
+            let datos = crate::descargas::DatosSpotify {
+                uri: format!("youtube:{}", c.id),
+                titulo: c.titulo.trim().to_string(),
+                artistas: Some(c.artista.trim().to_string()).filter(|a| !a.is_empty()).into_iter().collect(),
+                album: Some(nombre_album.clone()),
+                pista: Some(c.posicion),
+                portada: album.portada.clone(),
+                videos: vec![c.video],
+                guardar,
+                plex: plex.then(|| crate::descargas::DatosPlex {
+                    recopilatorio: artista_album.eq_ignore_ascii_case(crate::musica::etiquetas::VARIOS),
+                    artista_album: if artista_album.is_empty() { crate::musica::etiquetas::VARIOS.into() } else { artista_album.clone() },
+                    total: Some(album.total),
+                }),
+                fecha: album.fecha.clone().map(|f| f.trim().to_string()).filter(|f| !f.is_empty()),
+                artista_album: Some(artista_album.clone()).filter(|a| !a.is_empty()),
+            };
+            (datos, c.posicion)
+        })
+        .collect();
+    descargas.descargar_spotify(canciones, calidad, Some(grupo.clone()))?;
     Ok(grupo)
 }
 

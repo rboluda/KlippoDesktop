@@ -37,6 +37,20 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
   (`Descargas\Klippo\<lista>\` con cada archivo con su título), **Compartir**, **Copiar** y
   **WhatsApp** de todos a la vez; «Ver uno a uno» la despliega. Si algún vídeo es privado o se
   ha borrado, se bajan los demás.
+- **Listas de YouTube como canciones**: si eliges **Solo audio** (M4A o MP3) en una lista, Klippo
+  la trata como música. Con enlaces de YouTube Music (`music.youtube.com` o álbumes `OLAK5uy_…`)
+  ya te propone el audio. Se abre una pantalla con las etiquetas que Klippo cree correctas, para
+  revisarlas antes de descargar:
+  - Álbum, artista del álbum, año y portada (cuadrada; puedes poner una imagen tuya).
+  - Artista y título de cada canción, editables, con «⇄» para intercambiarlos y «Mismo artista
+    en todas». Cada fila dice de dónde sale: **YouTube Music** (fiable), **Deducido** (del
+    título del vídeo, conviene mirarlo), **MusicBrainz** o **A mano**.
+  - **Buscar el álbum en MusicBrainz** rellena álbum, artista, fecha, portada grande y los
+    títulos de las canciones; la lupa de cada fila busca esa canción.
+  - Luego, igual que con Spotify: dos a la vez, tarjeta con el avance, «Guardar al terminar»,
+    «Preparar etiquetas para Plexamp» y archivos `04 - Artista - Título`.
+
+  Si eliges vídeo, la lista se descarga como siempre.
 - **Desde Spotify**: pega (o arrastra, o envía con el marcador) un enlace de una lista, un
   álbum o una canción de Spotify. Klippo lee sus canciones sin cuenta, busca cada una en
   YouTube y te dice si lo encontrado es **idéntico** (mismo título, intérprete y duración),
@@ -109,7 +123,9 @@ Klippo solo instala las que se han publicado aquí.
 Sin publicidad, sin analítica, sin cuentas ni pantallas de bienvenida. Klippo solo se conecta
 para descargar el vídeo que le pides, para actualizar el motor cuando tú lo pides y, una vez
 al día, para mirar si hay versión nueva (se puede desactivar). A Spotify solo se conecta
-cuando pegas o compartes un enlace de Spotify, para leer esa lista y su portada.
+cuando pegas o compartes un enlace de Spotify, para leer esa lista y su portada. A MusicBrainz
+(y a Cover Art Archive, sus portadas) solo cuando pulsas buscar en la pantalla de una lista de
+canciones: se envía el texto buscado y el nombre de Klippo, nada tuyo.
 
 ## Compilar
 

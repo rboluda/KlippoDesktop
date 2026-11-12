@@ -32,8 +32,9 @@ pub fn es_solo_lista(url: &str) -> bool {
     let resto = url.trim().split_once("://").map_or("", |(_, r)| r);
     let ruta_y_consulta = resto.split_once('/').map_or("", |(_, r)| r);
     let (ruta, consulta) = ruta_y_consulta.split_once('?').unwrap_or((ruta_y_consulta, ""));
-    ruta.trim_end_matches('/').eq_ignore_ascii_case("playlist")
-        && consulta.split('&').any(|p| p.starts_with("list=") && p.len() > 5)
+    let ruta = ruta.trim_end_matches('/');
+    (ruta.eq_ignore_ascii_case("playlist") && consulta.split('&').any(|p| p.starts_with("list=") && p.len() > 5))
+        || ruta.to_ascii_lowercase().starts_with("browse/mpreb_")
 }
 
 /// Dominio de una URL en minúsculas, sin usuario ni puerto
@@ -71,6 +72,7 @@ mod pruebas {
         assert!(!es_solo_lista("https://youtu.be/abc?list=PL123"));
         assert!(!es_solo_lista("https://www.youtube.com/playlist"));
         assert!(!es_solo_lista("https://ejemplo.com/playlist?list=PL123"));
+        assert!(es_solo_lista("https://music.youtube.com/browse/MPREb_7ltM34kr0mH"));
     }
 
     #[test]

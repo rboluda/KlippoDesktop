@@ -50,13 +50,18 @@ export interface Descarga {
 export type Entrada = { tipo: "suelta"; descarga: Descarga } | { tipo: "lista"; grupo: string; elementos: Descarga[] };
 
 /** Junta los vídeos de cada lista en una sola entrada, donde aparece el primero */
+/** Listas que se bajan canción a canción (Spotify o una lista de YouTube como música):
+ *  su tarjeta sale desde el principio, aunque solo haya una */
+export const esGrupoDeCanciones = (g: string | null | undefined) =>
+  !!g && (g.startsWith("spotify-") || g.startsWith("musica-"));
+
 export function agrupar(lista: Descarga[]): Entrada[] {
   const entradas: Entrada[] = [];
   const grupos = new Map<string, Descarga[]>();
   for (const d of lista) {
     // Las listas de Spotify van juntas desde el principio (con lo que aún se baja); las demás,
     // cuando ya han terminado
-    const deSpotify = d.grupo?.startsWith("spotify-") ?? false;
+    const deSpotify = esGrupoDeCanciones(d.grupo);
     if (!d.grupo || (d.estado.tipo !== "completada" && !deSpotify)) {
       entradas.push({ tipo: "suelta", descarga: d });
       continue;
@@ -71,7 +76,7 @@ export function agrupar(lista: Descarga[]): Entrada[] {
   }
   // Una "lista" que se ha quedado con un solo vídeo (p. ej. tras borrar los demás) va suelta
   return entradas.map((e) =>
-    e.tipo === "lista" && e.elementos.length === 1 && !e.grupo.startsWith("spotify-")
+    e.tipo === "lista" && e.elementos.length === 1 && !esGrupoDeCanciones(e.grupo)
       ? { tipo: "suelta", descarga: e.elementos[0] }
       : e,
   );

@@ -10,6 +10,7 @@ mod entrada;
 mod formatos;
 mod marcador;
 mod motor;
+mod musica;
 mod sesiones;
 mod spotify;
 
@@ -65,6 +66,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_drag::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -163,6 +165,12 @@ pub fn run() {
             comandos::leer_spotify,
             comandos::buscar_spotify,
             comandos::buscar_youtube,
+            comandos::leer_lista_musica,
+            comandos::buscar_album_mb,
+            comandos::leer_album_mb,
+            comandos::buscar_cancion_mb,
+            comandos::portada_propia,
+            comandos::descargar_musica_youtube,
             comandos::cancelar_busqueda_spotify,
             comandos::descargar_spotify,
             comandos::cancelar_lista,

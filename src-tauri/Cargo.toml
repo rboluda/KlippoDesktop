@@ -39,6 +39,7 @@ tauri-plugin-drag = "2.1.1"
 base64 = "0.22"
 ureq = "3"
 unicode-normalization = "0.1.26"
+tauri-plugin-dialog = "2"
 
 # Tamaño mínimo del ejecutable (https://tauri.app/concept/size/)
 [profile.release]

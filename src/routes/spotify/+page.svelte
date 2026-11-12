@@ -117,6 +117,11 @@
       const videos = [co.elegido!, ...co.alternativas].map((r) => `https://www.youtube.com/watch?v=${r.id}`);
       return { cancion: c, videos };
     });
+    // El grupo de una lista se decide aquí, antes de pedir nada: dos clics seguidos van juntos
+    if (coleccion.tipo !== "track" && !grupo) {
+      grupo = `spotify-${coleccion.id}-${Date.now()}`;
+      gruposSpotify.set(`${coleccion.tipo}-${coleccion.id}`, grupo);
+    }
     try {
       const nuevo = await invoke<string | null>("descargar_spotify", {
         coleccion: {
