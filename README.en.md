@@ -42,7 +42,7 @@ same idea, the same colors and everything learned there about each platform.
   you whether the match is **identical** (same title, artist and length), **similar** or not
   found; click a row to open the video and check it. "Download all" gets the audio (M4A or MP3,
   in *Settings*) with Spotify's title, artist, album, track number and cover inside, named
-  `Artist - Title`. Two download at a time (the rest are "Queued"); if a video fails, another of
+  `Artist - Title` (in a playlist or album, with the number first: `04 - Artist - Title`). Two download at a time (the rest are "Queued"); if a video fails, another of
   the matches is tried. With "Save when finished" each song goes to
   `Downloads\Klippo\<playlist>\` on its own, and "Show in File Explorer" opens that folder.
   Without an account Spotify only shows the first 100 songs of a playlist: if it has more,

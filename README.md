@@ -42,7 +42,7 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
   YouTube y te dice si lo encontrado es **idéntico** (mismo título, intérprete y duración),
   **parecido** o no está; pulsando una fila abres el vídeo para comprobarlo. «Descargar todas»
   baja el audio (M4A o MP3, en *Ajustes*) con el título, el artista, el álbum, el número de
-  pista y la portada de Spotify dentro, con el nombre `Artista - Título`. Se bajan dos a la vez
+  pista y la portada de Spotify dentro, con el nombre `Artista - Título` (en una lista o un álbum, con el número delante: `04 - Artista - Título`). Se bajan dos a la vez
   («En cola» el resto); si un vídeo falla se prueba con otro de los encontrados. Con «Guardar
   al terminar» cada canción va sola a `Descargas\Klippo\<lista>\`, y «Ver en el Explorador»
   abre esa carpeta. Sin cuenta, Spotify solo enseña las 100 primeras canciones de una lista:

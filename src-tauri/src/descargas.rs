@@ -137,6 +137,15 @@ impl DatosSpotify {
     pub fn nombre(&self) -> String {
         if self.artistas.is_empty() { self.titulo.clone() } else { format!("{} - {}", self.artistas.join(", "), self.titulo) }
     }
+
+    /// Nombre del archivo guardado: en una lista o un álbum, con el número de pista delante
+    /// ("04 - Artista - Título") para que la carpeta conserve el orden
+    pub fn nombre_archivo(&self) -> String {
+        match self.pista {
+            Some(pista) => format!("{pista:02} - {}", self.nombre()),
+            None => self.nombre(),
+        }
+    }
 }
 
 impl Descarga {
@@ -467,7 +476,10 @@ impl Descargas {
                 carpeta = carpeta.or_else(|| guardado.parent().map(Path::to_path_buf));
                 continue;
             }
-            let titulo = d.titulo.clone().unwrap_or_else(|| format!("{} {}", nombre, i + 1));
+            let titulo = match &d.spotify {
+                Some(datos) => datos.nombre_archivo(),
+                None => d.titulo.clone().unwrap_or_else(|| format!("{} {}", nombre, i + 1)),
+            };
             let destino = compartir::guardar_como(&self.app, archivo, &nombre, &titulo)?;
             carpeta = destino.parent().map(Path::to_path_buf);
             let carpeta_cache = d.carpeta();
@@ -618,7 +630,7 @@ impl Descargas {
         let nombre = datos.nombre();
         let guardado = if datos.guardar {
             match datos.album.as_deref() {
-                Some(lista) => compartir::guardar_como(&self.app, &archivo, lista, &nombre).ok(),
+                Some(lista) => compartir::guardar_como(&self.app, &archivo, lista, &datos.nombre_archivo()).ok(),
                 None => compartir::guardar(&self.app, &archivo, Some(&nombre)).ok(),
             }
         } else {
@@ -1203,5 +1215,24 @@ mod pruebas {
         assert_eq!(datos["video-2"].1.as_deref(), Some("Lost Woods"));
         assert_eq!(datos["video"], (None, Some("Solo".into())));
         fs::remove_file(ruta).unwrap();
+    }
+
+    #[test]
+    fn nombre_del_archivo_con_la_pista() {
+        let mut datos = DatosSpotify {
+            uri: "spotify:track:x".into(),
+            titulo: "Sesi".into(),
+            artistas: vec!["Mojinos Escozios".into()],
+            album: Some("Semos unos monstruos".into()),
+            pista: Some(4),
+            portada: None,
+            videos: vec![],
+            guardar: true,
+        };
+        assert_eq!(datos.nombre_archivo(), "04 - Mojinos Escozios - Sesi");
+        datos.pista = Some(100);
+        assert_eq!(datos.nombre_archivo(), "100 - Mojinos Escozios - Sesi");
+        datos.pista = None;
+        assert_eq!(datos.nombre_archivo(), "Mojinos Escozios - Sesi");
     }
 }
