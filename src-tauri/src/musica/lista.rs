@@ -13,8 +13,8 @@ use super::etiquetas::{self, VARIOS};
 use crate::motor::{linea_de_error, texto, Motor};
 use crate::traducir;
 
-/// Como en las listas de vídeos: hasta 100
-const MAXIMO: u32 = 100;
+/// Como en las listas de vídeos: hasta 500
+const MAXIMO: u32 = 500;
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -42,7 +42,7 @@ pub struct ListaYoutube {
     pub artista_album: String,
     pub portada: Option<PathBuf>,
     pub canciones: Vec<CancionYoutube>,
-    /// La lista tiene más de 100 vídeos (solo se leen los 100 primeros)
+    /// La lista tiene más de 500 vídeos (solo se leen los 500 primeros)
     pub total_real: Option<u32>,
 }
 

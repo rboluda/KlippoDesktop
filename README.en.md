@@ -32,7 +32,7 @@ same idea, the same colors and everything learned there about each platform.
   (the playlist name) and the track number. On TikTok only formats with picture and
   sound together are used, and if a video arrives silent Klippo asks for it again in another
   format.
-- YouTube **playlists** (a `youtube.com/playlist?list=…` link, up to 100 items) and Instagram
+- YouTube **playlists** (a `youtube.com/playlist?list=…` link, up to 500 items) and Instagram
   and X **carousels** (up to 20): the bar shows the overall progress ("40 % · 4 of 10") and the
   playlist takes a single card with **Save all** (`Downloads\Klippo\<playlist>\`, each file
   named after its title), **Share**, **Copy** and **WhatsApp** for all of them at once; "Show

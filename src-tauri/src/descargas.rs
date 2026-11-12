@@ -30,7 +30,7 @@ const INTERVALO_PROGRESO: Duration = Duration::from_millis(150);
 /// Máximo de vídeos que se bajan de un carrusel
 const MAX_CARRUSEL: usize = 20;
 /// Máximo de elementos de una lista (que un enlace de canal no se ponga a bajar miles)
-const MAX_LISTA: usize = 100;
+const MAX_LISTA: usize = 500;
 /// Descargas a la vez en toda la app; las demás esperan "En cola"
 const A_LA_VEZ: usize = 2;
 /// Vídeos de YouTube que se prueban por canción de Spotify: el elegido y hasta 3 alternativas

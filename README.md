@@ -31,7 +31,7 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
   (VBR V0, unos 245 kbps). Los audios llevan dentro la carátula, el título y el artista y, en
   las listas, el álbum (el nombre de la lista) y el número de pista. En TikTok solo se usan formatos con
   imagen y sonido juntos, y si un vídeo llega mudo Klippo lo vuelve a pedir con otro formato.
-- **Listas de reproducción** de YouTube (un enlace `youtube.com/playlist?list=…`, hasta 100
+- **Listas de reproducción** de YouTube (un enlace `youtube.com/playlist?list=…`, hasta 500
   elementos) y **carruseles** de Instagram y X (hasta 20): la barra avanza sobre el total
   («40 % · 4 de 10») y la lista ocupa una sola tarjeta con **Guardar todo**
   (`Descargas\Klippo\<lista>\` con cada archivo con su título), **Compartir**, **Copiar** y
