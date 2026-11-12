@@ -7,7 +7,16 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { page } from "$app/state";
   import { guardar, leer } from "$lib/ajustes";
-  import { descargas, estaActiva, formatearDuracion, mostrarGuardado, reintentar, type Calidad, type Descarga } from "$lib/descargas.svelte";
+  import {
+    descargas,
+    estaActiva,
+    formatearDuracion,
+    mostrarGuardado,
+    reintentar,
+    ultimoGrupo,
+    type Calidad,
+    type Descarga,
+  } from "$lib/descargas.svelte";
   import Icono from "$lib/Icono.svelte";
   import { formato, t } from "$lib/i18n";
   import { mostrarMensaje } from "$lib/mensajes.svelte";
@@ -95,7 +104,11 @@
     (async () => {
       try {
         coleccion = await invoke<Coleccion>("leer_spotify", { enlace });
-        grupo = gruposSpotify.get(`${coleccion.tipo}-${coleccion.id}`) ?? null;
+        // Volver a una lista ya pedida: su grupo (el de la tarjeta, el de esta sesión o el último)
+        grupo =
+          page.url.searchParams.get("grupo") ??
+          gruposSpotify.get(`${coleccion.tipo}-${coleccion.id}`) ??
+          (coleccion.tipo === "track" ? null : ultimoGrupo(`spotify-${coleccion.id}-`));
         await Promise.all(escuchas);
         await invoke("buscar_spotify", { sesion, canciones: coleccion.canciones });
       } catch (e) {
@@ -131,6 +144,7 @@
           portada: coleccion.portada,
           autor: coleccion.autor,
           total: coleccion.canciones.length,
+          enlace,
         },
         canciones: peticiones,
         calidad,

@@ -2,6 +2,7 @@
      acciones sobre todos a la vez. "Ver uno a uno" la despliega con la tarjeta de cada uno. -->
 <script lang="ts">
   import { convertFileSrc } from "@tauri-apps/api/core";
+  import { goto } from "$app/navigation";
   import {
     cancelarLista,
     compartirLista,
@@ -48,6 +49,19 @@
   );
   const todasGuardadas = $derived(terminadas.length > 0 && terminadas.every((d) => d.guardado));
   const sinTerminadas = $derived(terminadas.length === 0);
+  // Las listas de canciones (Spotify o YouTube como música) recuerdan su enlace: se puede volver
+  const origen = $derived(elementos.find((d) => d.spotify?.origen)?.spotify?.origen ?? null);
+
+  function abrirLista() {
+    if (!origen) return;
+    const e = encodeURIComponent(origen);
+    const g = encodeURIComponent(grupo);
+    goto(
+      grupo.startsWith("spotify-")
+        ? `/spotify?enlace=${e}&grupo=${g}`
+        : `/musica?enlace=${e}&calidad=${primero.calidad === "mp3" ? "mp3" : "audio"}&grupo=${g}`,
+    );
+  }
   // Ya hay algo guardado: el Explorador se abre en esa carpeta, con ese archivo marcado
   const unaGuardada = $derived(terminadas.find((d) => d.guardado));
 
@@ -137,6 +151,17 @@
         </button>
         {#if menuAbierto}
           <div class="menu" role="menu">
+            {#if origen}
+              <button
+                role="menuitem"
+                onclick={() => {
+                  menuAbierto = false;
+                  abrirLista();
+                }}
+              >
+                <Icono nombre="editar" tamano={20} />{t.abrirLista}
+              </button>
+            {/if}
             <button
               role="menuitem"
               onclick={() => {

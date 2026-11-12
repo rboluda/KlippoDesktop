@@ -51,6 +51,12 @@ same idea, the same colors and everything learned there about each platform.
     "Prepare tags for Plexamp" and files named `04 - Artist - Title`.
 
   If you choose video, the playlist is downloaded as before.
+
+  You can come back at any time with **Open the list** (⋮ menu on its card, also on Spotify
+  ones) or by pasting the link again: the screen shows up as you left it, with the downloaded
+  songs ticked. If you fix something on a song already downloaded, **Apply changes** rewrites its
+  tags and the name of the saved copy without downloading it again. Whatever came from
+  MusicBrainz can be **Undone**.
 - **From Spotify**: paste (or drag, or send with the bookmark) a Spotify playlist, album or
   song link. Klippo reads its songs without an account, searches each one on YouTube and tells
   you whether the match is **identical** (same title, artist and length), **similar** or not

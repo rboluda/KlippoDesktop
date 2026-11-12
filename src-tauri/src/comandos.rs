@@ -371,6 +371,9 @@ pub struct ColeccionSpotify {
     /// Canciones de la lista o del álbum (las que Spotify enseña)
     #[serde(default)]
     total: Option<u32>,
+    /// El enlace pegado, para volver a la lista desde su tarjeta
+    #[serde(default)]
+    enlace: Option<String>,
 }
 
 /// Pone en cola canciones de Spotify. Las de una lista o un álbum comparten grupo (el que se
@@ -427,6 +430,7 @@ pub fn descargar_spotify(
                 guardar,
                 fecha: None,
                 artista_album: None,
+                origen: coleccion.enlace.clone().filter(|_| es_lista),
             };
             (datos, posicion)
         })
@@ -495,6 +499,9 @@ pub struct AlbumYoutube {
     fecha: Option<String>,
     portada: Option<PathBuf>,
     total: u32,
+    /// El enlace pegado, para volver a la lista desde su tarjeta
+    #[serde(default)]
+    enlace: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -544,12 +551,27 @@ pub fn descargar_musica_youtube(
                 }),
                 fecha: album.fecha.clone().map(|f| f.trim().to_string()).filter(|f| !f.is_empty()),
                 artista_album: Some(artista_album.clone()).filter(|a| !a.is_empty()),
+                origen: album.enlace.clone(),
             };
             (datos, c.posicion)
         })
         .collect();
     descargas.descargar_spotify(canciones, calidad, Some(grupo.clone()))?;
     Ok(grupo)
+}
+
+/// Corrige las etiquetas de canciones ya bajadas, sin volver a descargarlas
+#[tauri::command]
+pub async fn reetiquetar_canciones(
+    descargas: Gestor<'_>,
+    album: crate::descargas::AlbumEditado,
+    canciones: Vec<crate::descargas::CambioEtiquetas>,
+    plex: bool,
+) -> Result<u32, String> {
+    let descargas = descargas.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || descargas.reetiquetar(canciones, &album, plex))
+        .await
+        .map_err(texto_error_hilo)?
 }
 
 /// Cancela lo que quede por bajar de una lista (lo que está en cola no llega a arrancar)

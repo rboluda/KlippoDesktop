@@ -8,7 +8,16 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { page } from "$app/state";
   import { guardar, leer } from "$lib/ajustes";
-  import { descargas, estaActiva, formatearDuracion, mostrarGuardado, reintentar, type Calidad, type Descarga } from "$lib/descargas.svelte";
+  import {
+    descargas,
+    estaActiva,
+    formatearDuracion,
+    mostrarGuardado,
+    reintentar,
+    ultimoGrupo,
+    type Calidad,
+    type Descarga,
+  } from "$lib/descargas.svelte";
   import Icono from "$lib/Icono.svelte";
   import { formato, t } from "$lib/i18n";
   import { mostrarMensaje } from "$lib/mensajes.svelte";
@@ -61,7 +70,7 @@
     duracionMs: number | null;
   }
   /** De dónde salen artista y título de una fila */
-  type Origen = "youtubeMusic" | "deducido" | "musicbrainz" | "aMano";
+  type Origen = "youtubeMusic" | "deducido" | "musicbrainz" | "aMano" | "guardada";
   type Fila = CancionYoutube & { origen: Origen };
 
   const VARIOS = "Various Artists";
@@ -75,6 +84,9 @@
   let artistaAlbum = $state("");
   let fecha = $state("");
   let portada = $state<string | null>(null);
+  /** La portada guardada ya no está (la carpeta temporal se limpia): se enseña la de la lista */
+  let portadaRota = $state(false);
+  let aplicando = $state(false);
   let guardarAlTerminar = $state(true);
   let paraPlex = $state(false);
   let grupo = $state<string | null>(null);
@@ -98,12 +110,35 @@
         album = leida.album;
         artistaAlbum = leida.artistaAlbum;
         portada = leida.portada;
-        grupo = gruposSpotify.get(`youtube-${leida.id}`) ?? null;
+        // Volver a una lista ya pedida: su grupo (el de la tarjeta, el de esta sesión o el último)
+        grupo =
+          page.url.searchParams.get("grupo") ??
+          gruposSpotify.get(`youtube-${leida.id}`) ??
+          ultimoGrupo(`musica-${leida.id}-`);
+        restaurar();
       } catch (e) {
         error = String(e);
       }
     })();
   });
+
+  /** Lo ya descargado de esta lista pone el formulario como se dejó */
+  function restaurar() {
+    const bajadas = descargas.lista.filter((d) => d.grupo && d.grupo === grupo && d.spotify);
+    const datos = bajadas[0]?.spotify;
+    if (!datos) return;
+    album = datos.album ?? album;
+    artistaAlbum = datos.artistaAlbum ?? artistaAlbum;
+    fecha = datos.fecha ?? "";
+    if (datos.portada) portada = datos.portada;
+    for (const f of filas) {
+      const d = bajadas.find((x) => x.spotify?.uri === `youtube:${f.id}`);
+      if (!d?.spotify) continue;
+      f.titulo = d.spotify.titulo;
+      f.artista = d.spotify.artistas[0] ?? "";
+      f.origen = "guardada";
+    }
+  }
 
   /** La descarga de una fila (la de esta lista) */
   function descargaDe(f: Fila): Descarga | undefined {
@@ -113,7 +148,46 @@
     const d = descargaDe(f);
     return !d || d.estado.tipo === "cancelada";
   };
+  /** Se puede tocar mientras no se esté bajando (las ya bajadas también: «Aplicar cambios») */
+  const editable = (f: Fila) => {
+    const d = descargaDe(f);
+    return !d || !estaActiva(d);
+  };
   const paraDescargar = $derived(filas.filter((f) => libre(f) && f.titulo.trim()));
+
+  // Canciones ya bajadas cuyas etiquetas no coinciden con el formulario
+  const datosGuardados = $derived(filas.map(descargaDe).find((d) => d?.estado.tipo === "completada")?.spotify ?? null);
+  const albumCambiado = $derived(
+    !!datosGuardados &&
+      (album.trim() !== (datosGuardados.album ?? "") ||
+        artistaAlbum.trim() !== (datosGuardados.artistaAlbum ?? "") ||
+        fecha.trim() !== (datosGuardados.fecha ?? "") ||
+        (portada ?? null) !== (datosGuardados.portada ?? null)),
+  );
+  const cambiadas = $derived(
+    filas.filter((f) => {
+      const d = descargaDe(f);
+      if (d?.estado.tipo !== "completada" || !d.spotify) return false;
+      return albumCambiado || d.spotify.titulo !== f.titulo.trim() || (d.spotify.artistas[0] ?? "") !== f.artista.trim();
+    }),
+  );
+
+  async function aplicarCambios() {
+    if (cambiadas.length === 0 || aplicando) return;
+    aplicando = true;
+    try {
+      const hechas = await invoke<number>("reetiquetar_canciones", {
+        album: { album, artistaAlbum, fecha: fecha.trim() || null, portada, total: filas.length },
+        canciones: cambiadas.map((f) => ({ id: descargaDe(f)!.id, titulo: f.titulo, artista: f.artista })),
+        plex: paraPlex,
+      });
+      mostrarMensaje({ texto: formato(t.musicaAplicadas, hechas) });
+    } catch (e) {
+      mostrarMensaje({ texto: formato(t.noSePudo, String(e)) });
+    } finally {
+      aplicando = false;
+    }
+  }
   const unaGuardada = $derived(filas.map(descargaDe).find((d) => d?.estado.tipo === "completada" && d.guardado));
   const deducidas = $derived(filas.filter((f) => f.origen === "deducido").length);
 
@@ -131,6 +205,7 @@
           fecha: fecha.trim() || null,
           portada,
           total: filas.length,
+          enlace,
         },
         canciones: elegidas.map((f) => ({
           posicion: f.posicion,
@@ -171,7 +246,7 @@
   function mismoArtista() {
     const a = artistaAlbum.trim();
     if (!a || a === VARIOS) return;
-    for (const f of filas) if (libre(f) && f.artista !== a) {
+    for (const f of filas) if (editable(f) && f.artista !== a) {
       f.artista = a;
       f.origen = "aMano";
     }
@@ -225,17 +300,47 @@
     return comunes / Math.max(px.size, py.size);
   }
 
+  // ---- Deshacer lo traído de MusicBrainz (vuelve el formulario a como estaba) ----
+  interface Foto {
+    album: string;
+    artistaAlbum: string;
+    fecha: string;
+    portada: string | null;
+    filas: { artista: string; titulo: string; origen: Origen }[];
+  }
+  let antes = $state<Foto | null>(null);
+
+  function fotografiar() {
+    antes = {
+      album,
+      artistaAlbum,
+      fecha,
+      portada,
+      filas: filas.map((f) => ({ artista: f.artista, titulo: f.titulo, origen: f.origen })),
+    };
+  }
+
+  function deshacer() {
+    if (!antes) return;
+    ({ album, artistaAlbum, fecha, portada } = antes);
+    antes.filas.forEach((x, i) => {
+      if (filas[i]) Object.assign(filas[i], x);
+    });
+    antes = null;
+  }
+
   async function usarAlbum(l: Lanzamiento) {
     buscandoAlbum = true;
     errorMb = "";
     try {
       const a = await invoke<AlbumMb>("leer_album_mb", { id: l.id });
+      fotografiar();
       album = a.titulo;
       artistaAlbum = a.artista;
       fecha = a.fecha ?? "";
       if (a.portada) portada = a.portada;
       // Cada fila con su pista: en orden si coinciden en número; si no, por título y duración
-      const libres = filas.filter(libre);
+      const libres = filas.filter(editable);
       const usadas = new Set<number>();
       let completadas = 0;
       for (const f of libres) {
@@ -260,7 +365,10 @@
         completadas++;
       }
       lanzamientos = null;
-      mostrarMensaje({ texto: formato(t.musicaCompletadas, completadas, libres.length) });
+      mostrarMensaje({
+        texto: formato(t.musicaCompletadas, completadas, libres.length),
+        accion: { texto: t.deshacer, hacer: deshacer },
+      });
     } catch (e) {
       errorMb = String(e);
     } finally {
@@ -294,6 +402,7 @@
   }
 
   function usarGrabacion(f: Fila, g: GrabacionMb) {
+    fotografiar();
     f.titulo = g.titulo;
     f.artista = g.artista;
     f.origen = "musicbrainz";
@@ -306,6 +415,7 @@
     deducido: t.musicaDeducido,
     musicbrainz: "MusicBrainz",
     aMano: t.musicaAMano,
+    guardada: t.musicaGuardada,
   };
 </script>
 
@@ -322,7 +432,11 @@
   <section class="coleccion">
     <button class="portada" onclick={cambiarPortada} title={t.musicaPortada} aria-label={t.musicaPortada}>
       {#if portada}
-        <img src={convertFileSrc(portada)} alt="" />
+        <img
+          src={convertFileSrc(portadaRota && lista.portada ? lista.portada : portada)}
+          alt=""
+          onerror={() => (portadaRota = true)}
+        />
       {:else}
         <Icono nombre="audio" tamano={48} />
       {/if}
@@ -352,6 +466,9 @@
         <button class="boton texto" onclick={mismoArtista} disabled={!artistaAlbum.trim() || artistaAlbum.trim() === VARIOS}>
           {t.musicaMismoArtista}
         </button>
+        {#if antes}
+          <button class="boton texto" onclick={deshacer} title={t.musicaDeshacerDetalle}>↶ {t.deshacer}</button>
+        {/if}
       </div>
       {#if lista.totalReal}
         <p class="aviso">{formato(t.musicaLimite, lista.totalReal)}</p>
@@ -402,6 +519,11 @@
     <button class="boton" disabled={paraDescargar.length === 0} onclick={() => descargar(paraDescargar)}>
       {formato(t.spotifyDescargarTodas, paraDescargar.length)}
     </button>
+    {#if cambiadas.length > 0}
+      <button class="boton tonal" disabled={aplicando} title={t.musicaAplicarDetalle} onclick={aplicarCambios}>
+        <Icono nombre="hecho" tamano={18} />{aplicando ? t.musicaAplicando : formato(t.musicaAplicar, cambiadas.length)}
+      </button>
+    {/if}
     {#if unaGuardada}
       <button class="boton tonal" onclick={() => mostrarGuardado(unaGuardada.id)}>
         <Icono nombre="carpeta" tamano={18} />{t.verEnExplorador}
@@ -412,7 +534,7 @@
   <ol class="canciones">
     {#each filas as fila (fila.id + fila.posicion)}
       {@const d = descargaDe(fila)}
-      {@const editable = libre(fila)}
+      {@const sePuede = editable(fila)}
       <li>
         <span class="numero">{fila.posicion}</span>
         <div class="etiquetas">
@@ -424,9 +546,9 @@
               oninput={() => (fila.origen = "aMano")}
               placeholder={t.musicaArtista}
               aria-label={t.musicaArtista}
-              disabled={!editable}
+              disabled={!sePuede}
             />
-            <button class="boton-icono pequeno" title={t.musicaIntercambiar} aria-label={t.musicaIntercambiar} disabled={!editable} onclick={() => intercambiar(fila)}>
+            <button class="boton-icono pequeno" title={t.musicaIntercambiar} aria-label={t.musicaIntercambiar} disabled={!sePuede} onclick={() => intercambiar(fila)}>
               ⇄
             </button>
             <input
@@ -436,7 +558,7 @@
               oninput={() => (fila.origen = "aMano")}
               placeholder={t.musicaTituloCancion}
               aria-label={t.musicaTituloCancion}
-              disabled={!editable}
+              disabled={!sePuede}
             />
           </div>
           <button class="video" title={t.spotifyAbrirYoutube} onclick={() => openUrl(fila.video)}>
@@ -827,7 +949,8 @@
   }
 
   .youtubeMusic,
-  .musicbrainz {
+  .musicbrainz,
+  .guardada {
     color: #2e7d32;
   }
 
@@ -840,7 +963,8 @@
   }
 
   :global([data-tema="oscuro"]) .youtubeMusic,
-  :global([data-tema="oscuro"]) .musicbrainz {
+  :global([data-tema="oscuro"]) .musicbrainz,
+  :global([data-tema="oscuro"]) .guardada {
     color: #81c784;
   }
 

@@ -42,8 +42,19 @@ export interface Descarga {
   /** Mientras se baja una lista: por qué elemento va y cuántos hay ("4 de 10") */
   elemento: number | null;
   total: number | null;
-  /** Canción de Spotify */
-  spotify: { uri: string; titulo: string; artistas: string[]; videos: string[] } | null;
+  /** Canción de Spotify o de una lista de YouTube bajada como música, con sus etiquetas */
+  spotify: {
+    uri: string;
+    titulo: string;
+    artistas: string[];
+    videos: string[];
+    album: string | null;
+    artistaAlbum: string | null;
+    fecha: string | null;
+    portada: string | null;
+    /** Enlace de la lista de la que sale */
+    origen: string | null;
+  } | null;
 }
 
 /** Una entrada de Inicio: una descarga suelta o una lista con todos sus vídeos */
@@ -54,6 +65,15 @@ export type Entrada = { tipo: "suelta"; descarga: Descarga } | { tipo: "lista"; 
  *  su tarjeta sale desde el principio, aunque solo haya una */
 export const esGrupoDeCanciones = (g: string | null | undefined) =>
   !!g && (g.startsWith("spotify-") || g.startsWith("musica-"));
+
+/** El grupo más reciente de una lista de canciones ("<prefijo><id>-<momento>"), si hay alguno */
+export function ultimoGrupo(prefijo: string): string | null {
+  let mejor: string | null = null;
+  for (const d of descargas.lista) {
+    if (d.grupo?.startsWith(prefijo) && (!mejor || d.grupo > mejor)) mejor = d.grupo;
+  }
+  return mejor;
+}
 
 export function agrupar(lista: Descarga[]): Entrada[] {
   const entradas: Entrada[] = [];

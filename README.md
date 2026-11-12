@@ -51,6 +51,12 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
     «Preparar etiquetas para Plexamp» y archivos `04 - Artista - Título`.
 
   Si eliges vídeo, la lista se descarga como siempre.
+
+  Puedes volver cuando quieras con **Abrir la lista** (menú ⋮ de su tarjeta, también en las de
+  Spotify) o pegando otra vez el enlace: la pantalla sale como la dejaste, con las ya bajadas
+  marcadas. Si corriges algo de una canción ya descargada, **Aplicar cambios** reescribe sus
+  etiquetas y el nombre de la copia guardada sin volver a bajarla. Lo traído de MusicBrainz se
+  puede **Deshacer**.
 - **Desde Spotify**: pega (o arrastra, o envía con el marcador) un enlace de una lista, un
   álbum o una canción de Spotify. Klippo lee sus canciones sin cuenta, busca cada una en
   YouTube y te dice si lo encontrado es **idéntico** (mismo título, intérprete y duración),

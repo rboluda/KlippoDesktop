@@ -38,6 +38,33 @@ pub fn guardar_como(app: &AppHandle, archivo: &Path, carpeta: &str, nombre: &str
     copiar_en(archivo, &carpeta, &nombre_valido(nombre, "klippo"))
 }
 
+/// Mueve una copia ya guardada a Descargas\Klippo\<carpeta>\<nombre>.<ext> (tras corregir sus
+/// etiquetas). Si no cambia nada, la deja; si la carpeta antigua queda vacía, la borra.
+pub fn mover_a(app: &AppHandle, archivo: &Path, carpeta: &str, nombre: &str) -> Result<PathBuf, String> {
+    let destino_carpeta = app.path().download_dir().map_err(texto)?.join("Klippo").join(nombre_valido(carpeta, "Klippo"));
+    fs::create_dir_all(&destino_carpeta).map_err(texto)?;
+    let extension = archivo.extension().and_then(|e| e.to_str()).unwrap_or("m4a");
+    let nombre = nombre_valido(nombre, "klippo");
+    let mut destino = destino_carpeta.join(format!("{nombre}.{extension}"));
+    if destino.as_os_str().eq_ignore_ascii_case(archivo.as_os_str()) {
+        return Ok(archivo.to_path_buf());
+    }
+    let mut n = 1;
+    while destino.exists() {
+        destino = destino_carpeta.join(format!("{nombre} ({n}).{extension}"));
+        n += 1;
+    }
+    if fs::rename(archivo, &destino).is_err() {
+        fs::copy(archivo, &destino).map_err(texto)?;
+        let _ = fs::remove_file(archivo);
+    }
+    if let Some(antigua) = archivo.parent() {
+        // Solo se borra si está vacía (remove_dir falla si no)
+        let _ = fs::remove_dir(antigua);
+    }
+    Ok(destino)
+}
+
 /// Copia `archivo` en `carpeta` como <nombre>.<ext>; si ya existe, «<nombre> (1)», « (2)»…
 fn copiar_en(archivo: &Path, carpeta: &Path, nombre: &str) -> Result<PathBuf, String> {
     fs::create_dir_all(carpeta).map_err(texto)?;

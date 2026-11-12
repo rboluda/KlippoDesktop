@@ -171,6 +171,7 @@ pub fn run() {
             comandos::buscar_cancion_mb,
             comandos::portada_propia,
             comandos::descargar_musica_youtube,
+            comandos::reetiquetar_canciones,
             comandos::cancelar_busqueda_spotify,
             comandos::descargar_spotify,
             comandos::cancelar_lista,

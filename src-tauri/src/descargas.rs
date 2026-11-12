@@ -139,6 +139,9 @@ pub struct DatosSpotify {
     /// Artista del álbum escrito por el usuario (sin la casilla de Plex también se guarda)
     #[serde(default)]
     pub artista_album: Option<String>,
+    /// Enlace de la lista (Spotify o YouTube) de la que sale: «Abrir la lista» vuelve a ella
+    #[serde(default)]
+    pub origen: Option<String>,
 }
 
 /// Lo que Plex necesita para clasificar bien: agrupa los álbumes por "artista del álbum" +
@@ -955,6 +958,86 @@ impl Descargas {
         Ok(())
     }
 
+    // ---- Corregir etiquetas de canciones ya bajadas ----
+
+    /// Reescribe las etiquetas (sin volver a descargar) de las canciones indicadas: la de la
+    /// carpeta temporal, si sigue, y la copia guardada en Descargas\Klippo, que además cambia de
+    /// nombre (y de carpeta si cambia el álbum). Devuelve cuántas se han podido cambiar.
+    pub fn reetiquetar(&self, cambios: Vec<CambioEtiquetas>, album: &AlbumEditado, plex: bool) -> Result<u32, String> {
+        let motor = self.motor()?;
+        let mut hechas = 0;
+        for cambio in cambios {
+            let Some(descarga) = self.buscar(&cambio.id) else { continue };
+            let Some(mut datos) = descarga.spotify.clone() else { continue };
+            let carpeta = descarga.carpeta();
+            let archivo = descarga.archivo.clone().filter(|a| a.exists());
+            let guardado = descarga.guardado.clone().filter(|g| g.exists());
+            let Some(referencia) = archivo.clone().or_else(|| guardado.clone()) else { continue };
+
+            datos.titulo = cambio.titulo.trim().to_string();
+            datos.artistas = Some(cambio.artista.trim().to_string()).filter(|a| !a.is_empty()).into_iter().collect();
+            datos.album = Some(album.album.trim().to_string()).filter(|a| !a.is_empty()).or(datos.album);
+            datos.artista_album = Some(album.artista_album.trim().to_string()).filter(|a| !a.is_empty());
+            datos.fecha = album.fecha.clone().map(|f| f.trim().to_string()).filter(|f| !f.is_empty());
+            // La portada: la elegida; si no existe ya (la carpeta temporal se limpia), la del archivo
+            let portada = album
+                .portada
+                .clone()
+                .filter(|p| p.exists())
+                .or_else(|| datos.portada.clone().filter(|p| p.exists()))
+                .or_else(|| sacar_portada(&motor, &referencia, &cambio.id));
+            datos.portada = portada;
+            datos.plex = plex.then(|| {
+                let artista_album = datos.artista_album.clone().unwrap_or_else(|| crate::musica::etiquetas::VARIOS.into());
+                DatosPlex {
+                    recopilatorio: artista_album.eq_ignore_ascii_case(crate::musica::etiquetas::VARIOS),
+                    artista_album,
+                    total: album.total.or(datos.plex.as_ref().and_then(|p| p.total)),
+                }
+            });
+
+            if let Some(a) = &archivo {
+                etiquetar(&motor, a, &datos);
+            }
+            let nuevo_guardado = match &guardado {
+                Some(g) => {
+                    etiquetar(&motor, g, &datos);
+                    let lista = datos.album.clone().unwrap_or_else(|| "Klippo".into());
+                    Some(compartir::mover_a(&self.app, g, &lista, &datos.nombre_archivo()).unwrap_or_else(|_| g.clone()))
+                }
+                None => None,
+            };
+            let miniatura = carpeta.join(cache::ARCHIVO_MINIATURA);
+            if let Some(p) = datos.portada.as_ref().filter(|_| carpeta.exists()) {
+                let _ = fs::copy(p, &miniatura);
+            }
+            let nombre = datos.nombre();
+            if let Some(mut meta) = cache::leer_meta(&carpeta) {
+                meta.titulo = Some(nombre.clone());
+                meta.lista = datos.album.clone();
+                meta.spotify = Some(datos.clone());
+                if nuevo_guardado.is_some() {
+                    meta.guardado = nuevo_guardado.clone();
+                }
+                let _ = cache::escribir_meta(&carpeta, &meta);
+            }
+            self.cambiar(&cambio.id, |d| {
+                d.titulo = Some(nombre);
+                d.lista = datos.album.clone();
+                d.spotify = Some(datos);
+                if nuevo_guardado.is_some() {
+                    d.guardado = nuevo_guardado;
+                }
+                if miniatura.exists() {
+                    d.miniatura = Some(miniatura);
+                }
+            });
+            hechas += 1;
+        }
+        self.avisar();
+        Ok(hechas)
+    }
+
     // ---- Lista compartida con la interfaz ----
 
     fn cambiar<R>(&self, id: &str, cambio: impl FnOnce(&mut Descarga) -> R) -> Option<R> {
@@ -1133,6 +1216,45 @@ fn es_de_lista_spotify(descarga: &Descarga) -> bool {
 /// imagen de YouTube), sin los datos de YouTube y con título, artista (todos), álbum, pista y
 /// la portada de Spotify como carátula. Si falla con portada se repite sin ella; si falla del
 /// todo, el audio se queda como estaba.
+/// Una canción a la que cambiarle artista y título (id de su descarga)
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CambioEtiquetas {
+    pub id: String,
+    pub titulo: String,
+    pub artista: String,
+}
+
+/// Los datos del álbum tal como están en el formulario
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlbumEditado {
+    pub album: String,
+    pub artista_album: String,
+    pub fecha: Option<String>,
+    pub portada: Option<PathBuf>,
+    pub total: Option<u32>,
+}
+
+/// Saca la portada que ya lleva el audio (para no perderla al reetiquetar)
+fn sacar_portada(motor: &Motor, archivo: &Path, id: &str) -> Option<PathBuf> {
+    let carpeta = crate::spotify::lector::carpeta();
+    fs::create_dir_all(&carpeta).ok()?;
+    let destino = carpeta.join(format!("extraida-{id}.jpg"));
+    let estado = motor
+        .ffmpeg()
+        .args(["-v", "error", "-y", "-i"])
+        .arg(archivo)
+        .args(["-map", "0:v:0", "-frames:v", "1", "-c:v", "mjpeg", "-q:v", "2"])
+        .arg(&destino)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .ok()?;
+    (estado.success() && destino.exists()).then_some(destino)
+}
+
 fn etiquetar(motor: &Motor, archivo: &Path, datos: &DatosSpotify) {
     let ext = extension(archivo);
     let temporal = archivo.with_extension(format!("etiquetado.{ext}"));
@@ -1303,6 +1425,7 @@ mod pruebas {
             plex: None,
             fecha: None,
             artista_album: None,
+            origen: None,
         };
         assert_eq!(titulo_y_artista_plex(&datos), ("Camino de arena (feat. Nora Vidal)".into(), "Los Faros".into()));
         datos.titulo = "Correr (feat. Lía Montes)".into();
@@ -1327,6 +1450,7 @@ mod pruebas {
             plex: None,
             fecha: None,
             artista_album: None,
+            origen: None,
         };
         assert_eq!(datos.nombre_archivo(), "04 - Los Tejados - Siesta");
         datos.pista = Some(100);
