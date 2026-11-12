@@ -46,7 +46,8 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
   («En cola» el resto); si un vídeo falla se prueba con otro de los encontrados. Con «Guardar
   al terminar» cada canción va sola a `Descargas\Klippo\<lista>\`, y «Ver en el Explorador»
   abre esa carpeta. Sin cuenta, Spotify solo enseña las 100 primeras canciones de una lista:
-  si tiene más, Klippo te avisa.
+  si tiene más, Klippo te avisa. Si una canción no aparece o el vídeo elegido no te convence, la
+  lupa de su fila te deja buscarla a mano en YouTube o pegar el enlace del vídeo que quieras.
 - **Sesión opcional** en Instagram, X y Facebook para los vídeos que la piden
   (*Ajustes → Cuentas*, o el botón de la descarga fallida). Se abre la web oficial en una
   ventana; Klippo nunca ve tu contraseña y solo guarda las cookies, en tu equipo.

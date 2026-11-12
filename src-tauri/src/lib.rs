@@ -162,6 +162,7 @@ pub fn run() {
             comandos::abrir_carpeta,
             comandos::leer_spotify,
             comandos::buscar_spotify,
+            comandos::buscar_youtube,
             comandos::cancelar_busqueda_spotify,
             comandos::descargar_spotify,
             comandos::cancelar_lista,

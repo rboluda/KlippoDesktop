@@ -331,6 +331,19 @@ pub fn buscar_spotify(app: AppHandle, descargas: Gestor, sesion: u64, canciones:
     Ok(())
 }
 
+/// Búsqueda a mano de una canción no encontrada: texto libre o un enlace de YouTube
+#[tauri::command]
+pub async fn buscar_youtube(descargas: Gestor<'_>, texto: String) -> Result<Vec<spotify::coincidencias::Resultado>, String> {
+    let motor = descargas.motor()?;
+    tauri::async_runtime::spawn_blocking(move || spotify::busqueda::buscar_a_mano(&motor, &texto))
+        .await
+        .map_err(texto_error_hilo)?
+}
+
+fn texto_error_hilo(e: impl std::fmt::Display) -> String {
+    e.to_string()
+}
+
 /// Se ha cerrado la pantalla de Spotify: se paran los yt-dlp de la búsqueda
 #[tauri::command]
 pub fn cancelar_busqueda_spotify(sesion: u64) {

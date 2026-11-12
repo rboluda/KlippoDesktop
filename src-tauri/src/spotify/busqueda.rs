@@ -17,6 +17,7 @@ use tauri::{AppHandle, Emitter};
 use super::coincidencias::{self, Coincidencia, Resultado};
 use super::lector::Cancion;
 use crate::descargas::matar;
+use crate::enlaces;
 use crate::motor::Motor;
 
 /// Procesos de yt-dlp a la vez
@@ -124,6 +125,57 @@ fn buscar_grupo(app: &AppHandle, motor: &Motor, sesion: u64, canciones: &[Cancio
     }
 }
 
+/// Resultados de la búsqueda a mano
+const RESULTADOS_A_MANO: u32 = 10;
+
+/// Búsqueda a mano de una canción: el texto que escribe el usuario (hasta 10 vídeos) o un
+/// enlace de YouTube pegado (ese vídeo, con su título, canal y duración)
+pub fn buscar_a_mano(motor: &Motor, texto: &str) -> Result<Vec<Resultado>, String> {
+    let texto = texto.trim();
+    if texto.is_empty() {
+        return Ok(Vec::new());
+    }
+    let enlace = enlaces::extraer_url(texto).filter(|u| es_de_youtube(u));
+    let mut comando = motor.ytdlp();
+    comando.args(["--dump-single-json", "--flat-playlist", "--no-warnings", "--no-playlist"]);
+    match &enlace {
+        Some(url) => comando.arg(url),
+        None if enlaces::extraer_url(texto).is_some() => return Err(NO_ES_DE_YOUTUBE.into()),
+        None => comando.arg(format!("ytsearch{RESULTADOS_A_MANO}:{texto}")),
+    };
+    let salida = comando.stdin(Stdio::null()).stderr(Stdio::piped()).output().map_err(texto_error)?;
+    let json: Value = serde_json::from_slice(&salida.stdout).map_err(|_| {
+        let error = String::from_utf8_lossy(&salida.stderr);
+        error.lines().rfind(|l| l.contains("ERROR")).unwrap_or("No se pudo buscar en YouTube").trim().to_string()
+    })?;
+    if enlace.is_some() {
+        return Ok(leer_resultado(&json).into_iter().collect());
+    }
+    Ok(leer_resultados(&json))
+}
+
+const NO_ES_DE_YOUTUBE: &str = "Ese enlace no es de YouTube";
+
+fn texto_error(e: std::io::Error) -> String {
+    e.to_string()
+}
+
+fn es_de_youtube(url: &str) -> bool {
+    enlaces::host(url).is_some_and(|h| {
+        ["youtube.com", "youtu.be"].iter().any(|d| h == *d || h.ends_with(&format!(".{d}")))
+    })
+}
+
+/// Un vídeo (una entrada de la búsqueda o el JSON de un enlace)
+fn leer_resultado(e: &Value) -> Option<Resultado> {
+    Some(Resultado {
+        id: e["id"].as_str()?.to_string(),
+        titulo: e["title"].as_str()?.to_string(),
+        duracion: e["duration"].as_f64(),
+        canal: e["channel"].as_str().or(e["uploader"].as_str()).map(String::from),
+    })
+}
+
 /// Los vídeos de una respuesta, sin los directos en curso
 fn leer_resultados(json: &Value) -> Vec<Resultado> {
     json["entries"]
@@ -132,14 +184,7 @@ fn leer_resultados(json: &Value) -> Vec<Resultado> {
             entradas
                 .iter()
                 .filter(|e| e["live_status"].as_str() != Some("is_live"))
-                .filter_map(|e| {
-                    Some(Resultado {
-                        id: e["id"].as_str()?.to_string(),
-                        titulo: e["title"].as_str()?.to_string(),
-                        duracion: e["duration"].as_f64(),
-                        canal: e["channel"].as_str().or(e["uploader"].as_str()).map(String::from),
-                    })
-                })
+                .filter_map(leer_resultado)
                 .collect()
         })
         .unwrap_or_default()
@@ -162,5 +207,14 @@ mod pruebas {
         assert_eq!(r.len(), 2);
         assert_eq!(r[1].canal.as_deref(), Some("U2 - Topic"));
         assert_eq!(r[1].duracion, Some(229.0));
+    }
+
+    #[test]
+    fn enlaces_de_youtube() {
+        assert!(es_de_youtube("https://www.youtube.com/watch?v=abc"));
+        assert!(es_de_youtube("https://youtu.be/abc"));
+        assert!(es_de_youtube("https://music.youtube.com/watch?v=abc"));
+        assert!(!es_de_youtube("https://www.tiktok.com/@a/video/1"));
+        assert!(!es_de_youtube("https://notyoutube.com/watch?v=abc"));
     }
 }

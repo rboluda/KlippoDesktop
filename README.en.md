@@ -46,7 +46,8 @@ same idea, the same colors and everything learned there about each platform.
   the matches is tried. With "Save when finished" each song goes to
   `Downloads\Klippo\<playlist>\` on its own, and "Show in File Explorer" opens that folder.
   Without an account Spotify only shows the first 100 songs of a playlist: if it has more,
-  Klippo tells you.
+  Klippo tells you. If a song is not found or you do not like the chosen video, the magnifier on
+  its row lets you search YouTube yourself or paste the link of the video you want.
 - **Optional login** to Instagram, X and Facebook for videos that require it
   (*Settings → Accounts*, or the button on the failed download). The official website opens in
   a window; Klippo never sees your password and only keeps the cookies, on your computer.

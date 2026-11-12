@@ -36,7 +36,8 @@
     canal: string | null;
   }
   interface Coincidencia {
-    grado: "identica" | "parecida" | "noEncontrada";
+    /** "manual": el vídeo lo ha elegido el usuario (búsqueda a mano o enlace pegado) */
+    grado: "identica" | "parecida" | "noEncontrada" | "manual";
     elegido: Resultado | null;
     puntos: number;
     alternativas: Resultado[];
@@ -137,8 +138,63 @@
     guardar("spotifyGuardar", guardarAlTerminar);
   }
 
+  // ---- Búsqueda a mano (una fila cada vez) ----
+  let abierta = $state<number | null>(null);
+  let consulta = $state("");
+  let resultadosAMano = $state<Resultado[] | null>(null);
+  let buscandoAMano = $state(false);
+  let errorAMano = $state("");
+
+  function abrirBusqueda(c: Cancion) {
+    if (abierta === c.posicion) {
+      abierta = null;
+      return;
+    }
+    abierta = c.posicion;
+    consulta = `${c.artistas.join(", ")} - ${c.titulo}`;
+    resultadosAMano = null;
+    errorAMano = "";
+  }
+
+  async function buscarAMano(c: Cancion) {
+    const texto = consulta.trim();
+    if (!texto || buscandoAMano) return;
+    const enlace = /https?:\/\//i.test(texto);
+    if (enlace && !esDeYoutube(texto)) {
+      errorAMano = t.spotifyNoYoutube;
+      return;
+    }
+    buscandoAMano = true;
+    errorAMano = "";
+    try {
+      const resultados = await invoke<Resultado[]>("buscar_youtube", { texto });
+      if (abierta !== c.posicion) return;
+      // Un enlace pegado: ese vídeo, sin más preguntas
+      if (enlace && resultados.length === 1) elegirAMano(c, resultados[0]);
+      else resultadosAMano = resultados;
+    } catch (e) {
+      errorAMano = String(e);
+    } finally {
+      buscandoAMano = false;
+    }
+  }
+
+  function elegirAMano(c: Cancion, r: Resultado) {
+    coincidencias[c.posicion] = { grado: "manual", elegido: r, puntos: 0, alternativas: [] };
+    abierta = null;
+  }
+
+  function esDeYoutube(texto: string) {
+    try {
+      const host = new URL(texto.match(/https?:\/\/\S+/i)![0]).hostname.toLowerCase();
+      return ["youtube.com", "youtu.be"].some((d) => host === d || host.endsWith(`.${d}`));
+    } catch {
+      return false;
+    }
+  }
+
   const duracion = (ms: number) => formatearDuracion(ms / 1000);
-  const etiquetaGrado = { identica: t.identica, parecida: t.parecida, noEncontrada: t.noEncontrada };
+  const etiquetaGrado = { identica: t.identica, parecida: t.parecida, noEncontrada: t.noEncontrada, manual: t.manual };
   const resumirError = (m: string) => m.replace(/^\[[^\]]+]\s*[^:\s]+:\s*/, "").split(". ")[0];
 </script>
 
@@ -236,17 +292,77 @@
             <button class="boton-icono rojo" title={t.reintentar} aria-label={t.reintentar} onclick={() => reintentar(d.id)}>
               <Icono nombre="reintentar" tamano={20} />
             </button>
-          {:else if co?.elegido}
-            <button
-              class="boton-icono"
-              title={t.spotifyDescargar}
-              aria-label={t.spotifyDescargar}
-              onclick={() => descargar([cancion])}
-            >
-              <Icono nombre="guardar" tamano={20} />
-            </button>
+          {:else}
+            {#if co}
+              <button
+                class="boton-icono"
+                class:activo={abierta === cancion.posicion}
+                title={t.spotifyBuscarAMano}
+                aria-label={t.spotifyBuscarAMano}
+                aria-expanded={abierta === cancion.posicion}
+                onclick={() => abrirBusqueda(cancion)}
+              >
+                <Icono nombre="buscar" tamano={20} />
+              </button>
+            {/if}
+            {#if co?.elegido}
+              <button
+                class="boton-icono"
+                title={t.spotifyDescargar}
+                aria-label={t.spotifyDescargar}
+                onclick={() => descargar([cancion])}
+              >
+                <Icono nombre="guardar" tamano={20} />
+              </button>
+            {/if}
           {/if}
         </span>
+        {#if abierta === cancion.posicion}
+          <div class="a-mano">
+            <form
+              onsubmit={(e) => {
+                e.preventDefault();
+                buscarAMano(cancion);
+              }}
+            >
+              <!-- svelte-ignore a11y_autofocus -->
+              <input
+                type="text"
+                bind:value={consulta}
+                placeholder={t.spotifyBuscarPista}
+                aria-label={t.spotifyBuscarPista}
+                autofocus
+                onfocus={(e) => e.currentTarget.select()}
+              />
+              <button class="boton" type="submit" disabled={buscandoAMano || !consulta.trim()}>
+                {buscandoAMano ? t.buscandoCorto : t.buscarEnYoutube}
+              </button>
+            </form>
+            {#if errorAMano}
+              <p class="detalle rojo">{errorAMano}</p>
+            {:else if resultadosAMano?.length === 0}
+              <p class="detalle">{t.sinResultados}</p>
+            {:else if resultadosAMano}
+              <ul>
+                {#each resultadosAMano as r (r.id)}
+                  <li>
+                    <button
+                      class="resultado"
+                      title={t.spotifyAbrirYoutube}
+                      onclick={() => openUrl(`https://www.youtube.com/watch?v=${r.id}`)}
+                    >
+                      <span class="titulo">{r.titulo}</span>
+                      <span class="detalle">
+                        {[r.canal, r.duracion ? formatearDuracion(r.duracion) : null].filter(Boolean).join(" · ")}
+                      </span>
+                    </button>
+                    <button class="boton tonal" onclick={() => elegirAMano(cancion, r)}>{t.usarEste}</button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </div>
+        {/if}
       </li>
     {/each}
   </ol>
@@ -371,8 +487,9 @@
     list-style: none;
   }
 
-  .canciones li {
+  .canciones > li {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     border-bottom: 1px solid var(--outline-variant);
   }
@@ -456,8 +573,91 @@
   .accion {
     flex: none;
     display: flex;
-    justify-content: center;
-    width: 64px;
+    align-items: center;
+    justify-content: flex-end;
+    width: 96px;
+    padding-right: 8px;
+  }
+
+  .manual {
+    color: var(--primary);
+  }
+
+  .boton-icono.activo {
+    background: var(--secondary-container);
+  }
+
+  /* Búsqueda a mano, debajo de la fila */
+  .a-mano {
+    flex-basis: 100%;
+    padding: 4px 8px 14px 50px;
+  }
+
+  .a-mano form {
+    display: flex;
+    gap: 8px;
+  }
+
+  .a-mano input {
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    padding: 0 16px;
+    border: 1px solid var(--outline);
+    border-radius: 20px;
+    background: var(--surface);
+    color: var(--on-surface);
+    font: inherit;
+  }
+
+  .a-mano input:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: -1px;
+  }
+
+  .a-mano p {
+    margin: 10px 4px 0;
+  }
+
+  .a-mano ul {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .a-mano ul li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .resultado {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .resultado:hover {
+    background: color-mix(in srgb, var(--on-surface) 5%, transparent);
+  }
+
+  .resultado > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .resultado .titulo {
+    font-weight: 500;
   }
 
   .hecho {
