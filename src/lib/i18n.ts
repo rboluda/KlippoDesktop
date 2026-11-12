@@ -51,6 +51,9 @@ const es = {
   spotifyResumen: "{0} idénticas · {1} parecidas · {2} no encontradas",
   spotifyGuardar: "Guardar al terminar en Descargas\\Klippo\\{0}",
   spotifyDescargarTodas: "Descargar todas ({0})",
+  spotifyPlex: "Preparar etiquetas para Plexamp",
+  spotifyPlexDetalle:
+    "Artista del álbum, año, pista 4/19 y artista principal (los demás como «feat.»). Las listas van como recopilatorio de «Various Artists» para que Plex no las parta en un álbum por artista.",
   identica: "Idéntica",
   parecida: "Parecida",
   noEncontrada: "No encontrada",
@@ -265,6 +268,9 @@ const en: typeof es = {
   spotifyResumen: "{0} identical · {1} similar · {2} not found",
   spotifyGuardar: "Save when finished to Downloads\\Klippo\\{0}",
   spotifyDescargarTodas: "Download all ({0})",
+  spotifyPlex: "Prepare tags for Plexamp",
+  spotifyPlexDetalle:
+    "Album artist, year, track 4/19 and main artist (the rest as \"feat.\"). Playlists are tagged as a \"Various Artists\" compilation so Plex doesn't split them into one album per artist.",
   identica: "Identical",
   parecida: "Similar",
   noEncontrada: "Not found",

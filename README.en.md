@@ -48,6 +48,10 @@ same idea, the same colors and everything learned there about each platform.
   Without an account Spotify only shows the first 100 songs of a playlist: if it has more,
   Klippo tells you. If a song is not found or you do not like the chosen video, the magnifier on
   its row lets you search YouTube yourself or paste the link of the video you want.
+  With "Prepare tags for Plexamp" songs are ready for Plex: album artist, year, track "4/19",
+  disc and the main artist (the rest as "feat." in the title); a playlist is tagged as a
+  "Various Artists" compilation so Plex does not split it into one album per artist. In Plex,
+  turn on "Prefer local metadata" for the library.
 - **Optional login** to Instagram, X and Facebook for videos that require it
   (*Settings → Accounts*, or the button on the failed download). The official website opens in
   a window; Klippo never sees your password and only keeps the cookies, on your computer.

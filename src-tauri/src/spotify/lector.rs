@@ -137,6 +137,27 @@ fn total_de_la_pagina(html: &str) -> Option<u32> {
 }
 
 /// Los datos del embed: la colección (sin portada) y la URL de la portada
+/// Fecha de publicación de una canción ("1996-03-15"), de su página embed. El embed de un
+/// álbum o de una lista no la trae, así que se pide canción a canción (solo para Plex).
+pub fn fecha(uri: &str) -> Option<String> {
+    let id = uri.rsplit(':').next().filter(|id| id.len() == 22)?;
+    let (estado, html) = pedir(&format!("https://open.spotify.com/embed/track/{id}"), NAVEGADOR).ok()?;
+    if estado != 200 {
+        return None;
+    }
+    fecha_de_la_pagina(&html)
+}
+
+fn fecha_de_la_pagina(html: &str) -> Option<String> {
+    let inicio_marca = "<script id=\"__NEXT_DATA__\" type=\"application/json\">";
+    let inicio = html.find(inicio_marca)? + inicio_marca.len();
+    let fin = html[inicio..].find("</script>")? + inicio;
+    let datos: Value = serde_json::from_str(&html[inicio..fin]).ok()?;
+    let iso = datos["props"]["pageProps"]["state"]["data"]["entity"]["releaseDate"]["isoString"].as_str()?;
+    let dia = iso.get(..10)?;
+    dia.chars().enumerate().all(|(i, c)| if i == 4 || i == 7 { c == '-' } else { c.is_ascii_digit() }).then(|| dia.to_string())
+}
+
 pub fn interpretar(html: &str, enlace: &EnlaceSpotify) -> Result<(Coleccion, Option<String>), String> {
     let inicio_marca = "<script id=\"__NEXT_DATA__\" type=\"application/json\">";
     let inicio = html.find(inicio_marca).ok_or_else(formato_desconocido)? + inicio_marca.len();
@@ -288,5 +309,13 @@ mod pruebas {
         assert!(interpretar(&embed(r#"{"name":"Vacía","trackList":[]}"#), &enlace).is_err());
         assert!(interpretar("<html>otra cosa</html>", &enlace).is_err());
         assert_eq!(total_de_la_pagina(r#"<meta name="music:song_count" content="150"/>"#), Some(150));
+    }
+
+    #[test]
+    fn fecha_de_una_cancion() {
+        let html = r#"<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"state":{"data":{"entity":{"releaseDate":{"isoString":"1996-03-15T00:00:00Z"}}}}}}}</script>"#;
+        assert_eq!(fecha_de_la_pagina(html).as_deref(), Some("1996-03-15"));
+        let sin = r#"<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"state":{"data":{"entity":{"releaseDate":null}}}}}}</script>"#;
+        assert_eq!(fecha_de_la_pagina(sin), None);
     }
 }

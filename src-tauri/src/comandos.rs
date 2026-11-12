@@ -365,6 +365,12 @@ pub struct ColeccionSpotify {
     id: String,
     nombre: String,
     portada: Option<PathBuf>,
+    /// Artista del álbum (o autor de la lista), para las etiquetas de Plex
+    #[serde(default)]
+    autor: Option<String>,
+    /// Canciones de la lista o del álbum (las que Spotify enseña)
+    #[serde(default)]
+    total: Option<u32>,
 }
 
 /// Pone en cola canciones de Spotify. Las de una lista o un álbum comparten grupo (el que se
@@ -376,9 +382,12 @@ pub fn descargar_spotify(
     canciones: Vec<PeticionSpotify>,
     calidad: Calidad,
     guardar: bool,
+    plex: Option<bool>,
     grupo: Option<String>,
 ) -> Result<Option<String>, String> {
     let es_lista = coleccion.tipo != spotify::enlaces::Tipo::Track;
+    let es_album = coleccion.tipo == spotify::enlaces::Tipo::Album;
+    const VARIOS: &str = "Various Artists";
     let grupo = es_lista.then(|| {
         grupo.unwrap_or_else(|| {
             let ahora = std::time::SystemTime::now()
@@ -395,10 +404,25 @@ pub fn descargar_spotify(
             let datos = crate::descargas::DatosSpotify {
                 uri: p.cancion.uri,
                 titulo: p.cancion.titulo,
-                artistas: p.cancion.artistas,
+                artistas: p.cancion.artistas.clone(),
                 album: es_lista.then(|| coleccion.nombre.clone()),
                 pista: es_lista.then_some(posicion),
                 portada: coleccion.portada.clone(),
+                plex: plex.unwrap_or(false).then(|| {
+                    // Álbum: su artista (si es "Various Artists", recopilatorio). Lista: siempre
+                    // recopilatorio. Canción suelta: su artista principal.
+                    let principal = p.cancion.artistas.first().cloned().unwrap_or_default();
+                    let artista_album = match (&coleccion.tipo, &coleccion.autor) {
+                        (spotify::enlaces::Tipo::Album, Some(autor)) => autor.clone(),
+                        (spotify::enlaces::Tipo::Playlist, _) => VARIOS.to_string(),
+                        _ => principal,
+                    };
+                    crate::descargas::DatosPlex {
+                        recopilatorio: !es_album && es_lista || artista_album.eq_ignore_ascii_case(VARIOS),
+                        artista_album,
+                        total: es_lista.then_some(coleccion.total).flatten(),
+                    }
+                }),
                 videos: p.videos,
                 guardar,
             };

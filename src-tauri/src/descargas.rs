@@ -130,6 +130,37 @@ pub struct DatosSpotify {
     pub videos: Vec<String>,
     /// Guardar sola al terminar en Descargas\Klippo[\<lista>]
     pub guardar: bool,
+    /// Etiquetas preparadas para Plex / Plexamp (si se marcó la casilla)
+    #[serde(default)]
+    pub plex: Option<DatosPlex>,
+}
+
+/// Lo que Plex necesita para clasificar bien: agrupa los álbumes por "artista del álbum" +
+/// álbum, así que una lista con muchos artistas debe ir como recopilatorio de "Various Artists"
+/// (el nombre que Plex reconoce) o saldría partida en un álbum por artista
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DatosPlex {
+    pub artista_album: String,
+    pub recopilatorio: bool,
+    /// Canciones de la lista o del álbum (pista "4/19")
+    pub total: Option<u32>,
+}
+
+/// Etiquetas de Plex de una canción: artista principal y el resto como "feat." en el título
+/// (Plex no separa varios artistas en un mismo campo)
+fn titulo_y_artista_plex(datos: &DatosSpotify) -> (String, String) {
+    let Some((principal, resto)) = datos.artistas.split_first() else {
+        return (datos.titulo.clone(), String::new());
+    };
+    let minusculas = datos.titulo.to_lowercase();
+    let ya_lo_dice = ["feat", "ft.", "with ", "con "].iter().any(|p| minusculas.contains(p));
+    let titulo = if resto.is_empty() || ya_lo_dice {
+        datos.titulo.clone()
+    } else {
+        format!("{} (feat. {})", datos.titulo, resto.join(", "))
+    };
+    (titulo, principal.clone())
 }
 
 impl DatosSpotify {
@@ -1100,6 +1131,8 @@ fn etiquetar(motor: &Motor, archivo: &Path, datos: &DatosSpotify) {
     let ext = extension(archivo);
     let temporal = archivo.with_extension(format!("etiquetado.{ext}"));
     let portada = datos.portada.as_ref().filter(|p| p.exists());
+    // Para Plex, el año (una petición pequeña a Spotify por canción)
+    let fecha = datos.plex.as_ref().and_then(|_| crate::spotify::lector::fecha(&datos.uri));
     let intentar = |con_portada: bool| -> bool {
         let mut comando = motor.ffmpeg();
         comando.args(["-v", "error", "-y", "-i"]).arg(archivo);
@@ -1111,13 +1144,38 @@ fn etiquetar(motor: &Motor, archivo: &Path, datos: &DatosSpotify) {
             comando.args(["-map", "1:v:0"]);
         }
         comando.args(["-map_metadata", "-1", "-c", "copy"]);
-        comando.arg("-metadata").arg(format!("title={}", datos.titulo));
-        comando.arg("-metadata").arg(format!("artist={}", datos.artistas.join(", ")));
+        let mut etiqueta = |clave: &str, valor: &str| {
+            comando.arg("-metadata").arg(format!("{clave}={valor}"));
+        };
+        match &datos.plex {
+            None => {
+                etiqueta("title", &datos.titulo);
+                etiqueta("artist", &datos.artistas.join(", "));
+            }
+            Some(plex) => {
+                let (titulo, artista) = titulo_y_artista_plex(datos);
+                etiqueta("title", &titulo);
+                etiqueta("artist", &artista);
+                etiqueta("album_artist", &plex.artista_album);
+                if plex.recopilatorio {
+                    etiqueta("compilation", "1");
+                }
+                if let Some(fecha) = &fecha {
+                    etiqueta("date", fecha);
+                }
+            }
+        }
         if let Some(album) = &datos.album {
-            comando.arg("-metadata").arg(format!("album={album}"));
+            etiqueta("album", album);
         }
         if let Some(pista) = datos.pista {
-            comando.arg("-metadata").arg(format!("track={pista}"));
+            match datos.plex.as_ref().and_then(|p| p.total) {
+                Some(total) => etiqueta("track", &format!("{pista}/{total}")),
+                None => etiqueta("track", &pista.to_string()),
+            }
+            if datos.plex.is_some() {
+                etiqueta("disc", "1/1");
+            }
         }
         if con_portada {
             comando.args(["-disposition:v:0", "attached_pic"]);
@@ -1218,6 +1276,28 @@ mod pruebas {
     }
 
     #[test]
+    fn titulo_y_artista_para_plex() {
+        let mut datos = DatosSpotify {
+            uri: "spotify:track:x".into(),
+            titulo: "Afro Ride".into(),
+            artistas: vec!["Leftfield".into(), "DJUM DJUM".into()],
+            album: None,
+            pista: None,
+            portada: None,
+            videos: vec![],
+            guardar: false,
+            plex: None,
+        };
+        assert_eq!(titulo_y_artista_plex(&datos), ("Afro Ride (feat. DJUM DJUM)".into(), "Leftfield".into()));
+        datos.titulo = "Run (feat. Eva Lazarus)".into();
+        datos.artistas = vec!["Dub FX".into(), "Eva Lazarus".into()];
+        assert_eq!(titulo_y_artista_plex(&datos), ("Run (feat. Eva Lazarus)".into(), "Dub FX".into()));
+        datos.artistas = vec!["Fluke".into()];
+        datos.titulo = "Absurd".into();
+        assert_eq!(titulo_y_artista_plex(&datos), ("Absurd".into(), "Fluke".into()));
+    }
+
+    #[test]
     fn nombre_del_archivo_con_la_pista() {
         let mut datos = DatosSpotify {
             uri: "spotify:track:x".into(),
@@ -1228,6 +1308,7 @@ mod pruebas {
             portada: None,
             videos: vec![],
             guardar: true,
+            plex: None,
         };
         assert_eq!(datos.nombre_archivo(), "04 - Mojinos Escozios - Sesi");
         datos.pista = Some(100);

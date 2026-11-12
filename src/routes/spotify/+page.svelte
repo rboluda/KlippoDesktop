@@ -52,6 +52,7 @@
   let buscando = $state(true);
   let calidad = $state<Calidad>("audio");
   let guardarAlTerminar = $state(true);
+  let paraPlex = $state(false);
 
   const recibidas = $derived(Object.keys(coincidencias).length);
   const total = $derived(coleccion?.canciones.length ?? 0);
@@ -82,6 +83,7 @@
   onMount(() => {
     leer<Calidad>("formatoSpotify", "audio").then((c) => (calidad = c));
     leer("spotifyGuardar", true).then((g) => (guardarAlTerminar = g));
+    leer("spotifyPlex", false).then((p) => (paraPlex = p));
     const escuchas = [
       listen<{ sesion: number; posicion: number; coincidencia: Coincidencia }>("spotify-resultado", (e) => {
         if (e.payload.sesion === sesion) coincidencias[e.payload.posicion] = e.payload.coincidencia;
@@ -117,10 +119,18 @@
     });
     try {
       const nuevo = await invoke<string | null>("descargar_spotify", {
-        coleccion: { tipo: coleccion.tipo, id: coleccion.id, nombre: coleccion.nombre, portada: coleccion.portada },
+        coleccion: {
+          tipo: coleccion.tipo,
+          id: coleccion.id,
+          nombre: coleccion.nombre,
+          portada: coleccion.portada,
+          autor: coleccion.autor,
+          total: coleccion.canciones.length,
+        },
         canciones: peticiones,
         calidad,
         guardar: guardarAlTerminar,
+        plex: paraPlex,
         grupo,
       });
       if (nuevo) {
@@ -136,6 +146,11 @@
   function cambiarGuardar() {
     guardarAlTerminar = !guardarAlTerminar;
     guardar("spotifyGuardar", guardarAlTerminar);
+  }
+
+  function cambiarPlex() {
+    paraPlex = !paraPlex;
+    guardar("spotifyPlex", paraPlex);
   }
 
   // ---- Búsqueda a mano (una fila cada vez) ----
@@ -236,6 +251,10 @@
     <label class="casilla">
       <input type="checkbox" checked={guardarAlTerminar} onchange={cambiarGuardar} />
       {formato(t.spotifyGuardar, coleccion.tipo === "track" ? "" : coleccion.nombre)}
+    </label>
+    <label class="casilla" title={t.spotifyPlexDetalle}>
+      <input type="checkbox" checked={paraPlex} onchange={cambiarPlex} />
+      {t.spotifyPlex}
     </label>
     <button class="boton" disabled={buscando || paraDescargar.length === 0} onclick={() => descargar(paraDescargar)}>
       {formato(t.spotifyDescargarTodas, paraDescargar.length)}
