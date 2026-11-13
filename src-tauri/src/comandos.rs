@@ -189,7 +189,17 @@ pub fn cancelar_exportacion() {
 fn de_klippo(ruta: &str) -> Result<PathBuf, String> {
     let ruta = std::fs::canonicalize(ruta).map_err(|_| no_encontrado())?;
     let raiz = std::fs::canonicalize(cache::raiz()).map_err(texto)?;
-    if ruta.starts_with(&raiz) && ruta.is_file() { Ok(ruta) } else { Err(no_encontrado()) }
+    if ruta.starts_with(&raiz) && ruta.is_file() { Ok(sin_prefijo_largo(ruta)) } else { Err(no_encontrado()) }
+}
+
+/// canonicalize devuelve "\\?\C:\…": el menú Compartir de Windows (StorageFile) no acepta esas
+/// rutas ("UNABLE_TO_MASK_PATH") y otras apps tampoco al pegarlas. Se quita si es una unidad.
+fn sin_prefijo_largo(ruta: PathBuf) -> PathBuf {
+    let texto = ruta.to_string_lossy();
+    match texto.strip_prefix(r"\\?\") {
+        Some(resto) if resto.as_bytes().get(1) == Some(&b':') => PathBuf::from(resto),
+        _ => ruta,
+    }
 }
 
 /// `titulo`: el del vídeo original, para el nombre del archivo
@@ -578,4 +588,28 @@ pub async fn reetiquetar_canciones(
 #[tauri::command]
 pub fn cancelar_lista(descargas: Gestor, grupo: String) {
     descargas.cancelar_lista(&grupo);
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use windows::Storage::StorageFile;
+    use windows::core::HSTRING;
+
+    #[test]
+    fn rutas_que_acepta_compartir() {
+        let archivo = std::env::temp_dir().join("klippo-prueba-compartir.mp4");
+        std::fs::write(&archivo, b"x").unwrap();
+        let larga = std::fs::canonicalize(&archivo).unwrap();
+        assert!(larga.to_string_lossy().starts_with(r"\\?\"));
+        // Así fallaba el menú Compartir del editor…
+        assert!(StorageFile::GetFileFromPathAsync(&HSTRING::from(larga.as_os_str())).and_then(|o| o.join()).is_err());
+        // …y así funciona
+        let corta = sin_prefijo_largo(larga);
+        assert!(!corta.to_string_lossy().starts_with(r"\\"));
+        assert!(StorageFile::GetFileFromPathAsync(&HSTRING::from(corta.as_os_str())).and_then(|o| o.join()).is_ok());
+        // Las rutas de red no se tocan
+        assert_eq!(sin_prefijo_largo(PathBuf::from(r"\\?\UNC\servidor\x")), PathBuf::from(r"\\?\UNC\servidor\x"));
+        std::fs::remove_file(archivo).unwrap();
+    }
 }
