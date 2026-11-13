@@ -1,6 +1,6 @@
 {
   "name": "klippo-desktop",
-  "version": "1.10.2",
+  "version": "1.11.0",
   "description": "Klippo para Windows: descarga, recorta y comparte vídeos de YouTube, TikTok, X, Instagram y Facebook",
   "type": "module",
   "scripts": {
