@@ -662,8 +662,18 @@ impl Descargas {
     /// Descargas\Klippo[\<lista>]
     fn rematar_cancion(&self, motor: &Motor, terminada: Descarga, carpeta: &Path, datos: &DatosSpotify) -> Descarga {
         let Some(archivo) = terminada.archivo.clone() else { return terminada };
-        etiquetar(motor, &archivo, datos);
         let miniatura = carpeta.join(cache::ARCHIVO_MINIATURA);
+        // Sin portada (listas pegadas como texto): la miniatura del vídeo, cuadrada
+        let mut con_portada;
+        let datos = if datos.portada.as_ref().is_some_and(|p| p.exists()) || !miniatura.exists() {
+            datos
+        } else {
+            con_portada = datos.clone();
+            con_portada.portada =
+                crate::musica::lista::recortar_cuadrada(motor, &miniatura, &carpeta.join("portada.jpg")).ok();
+            &con_portada
+        };
+        etiquetar(motor, &archivo, datos);
         if let Some(portada) = datos.portada.as_ref().filter(|p| p.exists()) {
             let _ = fs::copy(portada, &miniatura);
         }

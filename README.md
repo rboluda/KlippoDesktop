@@ -72,6 +72,13 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
   año, pista «4/19», disco y el artista principal (los demás como «feat.» en el título); una lista
   va como recopilatorio de «Various Artists» para que Plex no la parta en un álbum por artista.
   En Plex, activa «Preferir metadatos locales» en la biblioteca.
+- **Una lista de canciones en texto**: pega en el campo (o con el botón ♪ de al lado) una
+  canción por línea, como `Artista - Título`, copiada de donde sea: una nota, un correo, una
+  hoja de cálculo… Klippo quita la numeración y las viñetas, usa la duración si viene (`3:45`)
+  y te enseña al momento cuántas canciones ha entendido. Le pones nombre y a partir de ahí es
+  igual que con Spotify: busca cada una en YouTube, te dice lo parecido que es lo encontrado,
+  la lupa para buscar a mano, «Descargar todas» y `Descargas\Klippo\<nombre>\`. Como portada
+  va la imagen del vídeo, cuadrada. «Editar la lista» vuelve al texto. Hasta 500 canciones.
 - **Sesión opcional** en Instagram, X y Facebook para los vídeos que la piden
   (*Ajustes → Cuentas*, o el botón de la descarga fallida). Se abre la web oficial en una
   ventana; Klippo nunca ve tu contraseña y solo guarda las cookies, en tu equipo.

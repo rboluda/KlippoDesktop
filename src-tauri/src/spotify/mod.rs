@@ -5,3 +5,4 @@ pub mod busqueda;
 pub mod coincidencias;
 pub mod enlaces;
 pub mod lector;
+pub mod texto;

@@ -1,5 +1,6 @@
 <!-- Descargar desde Spotify: las canciones de la lista (o del álbum, o la canción), lo que se ha
-     encontrado de cada una en YouTube y lo parecido que es, y su descarga -->
+     encontrado de cada una en YouTube y lo parecido que es, y su descarga. También sirve para
+     las listas pegadas como texto (enlace "texto:<id>"). -->
 <script lang="ts">
   import { onMount } from "svelte";
   import { convertFileSrc, invoke } from "@tauri-apps/api/core";
@@ -20,7 +21,7 @@
   import Icono from "$lib/Icono.svelte";
   import { formato, t } from "$lib/i18n";
   import { mostrarMensaje } from "$lib/mensajes.svelte";
-  import { gruposSpotify } from "$lib/spotify";
+  import { gruposSpotify, listaDeTexto, PREFIJO_TEXTO } from "$lib/spotify";
 
   interface Cancion {
     posicion: number;
@@ -53,6 +54,8 @@
   }
 
   const enlace = page.url.searchParams.get("enlace") ?? "";
+  // Una lista pegada como texto (guardada en los ajustes) en vez de un enlace de Spotify
+  const idTexto = enlace.startsWith(PREFIJO_TEXTO) ? enlace.slice(PREFIJO_TEXTO.length) : null;
   const sesion = Date.now();
 
   let coleccion = $state<Coleccion | null>(null);
@@ -103,7 +106,7 @@
     ];
     (async () => {
       try {
-        coleccion = await invoke<Coleccion>("leer_spotify", { enlace });
+        coleccion = await leerColeccion();
         // Volver a una lista ya pedida: su grupo (el de la tarjeta, el de esta sesión o el último)
         grupo =
           page.url.searchParams.get("grupo") ??
@@ -122,6 +125,13 @@
       escuchas.forEach((p) => p.then((f) => f()));
     };
   });
+
+  async function leerColeccion(): Promise<Coleccion> {
+    if (idTexto === null) return invoke<Coleccion>("leer_spotify", { enlace });
+    const lista = await listaDeTexto(idTexto);
+    if (!lista) throw t.listaTextoPerdida;
+    return invoke<Coleccion>("leer_lista_de_texto", { texto: lista.texto, id: idTexto, nombre: lista.nombre });
+  }
 
   async function descargar(canciones: Cancion[]) {
     if (!coleccion || canciones.length === 0) return;
@@ -185,7 +195,7 @@
       return;
     }
     abierta = c.posicion;
-    consulta = `${c.artistas.join(", ")} - ${c.titulo}`;
+    consulta = c.artistas.length ? `${c.artistas.join(", ")} - ${c.titulo}` : c.titulo;
     resultadosAMano = null;
     errorAMano = "";
   }
@@ -234,13 +244,13 @@
 
 <div class="cabecera">
   <a class="boton-icono" href="/" title={t.atras} aria-label={t.atras}><Icono nombre="atras" /></a>
-  <h1>Spotify</h1>
+  <h1>{idTexto === null ? "Spotify" : t.listaTextoTitulo}</h1>
 </div>
 
 {#if error}
   <p class="error-grande">{error}</p>
 {:else if !coleccion}
-  <p class="cargando">{t.spotifyLeyendo}</p>
+  <p class="cargando">{idTexto === null ? t.spotifyLeyendo : ""}</p>
 {:else}
   <section class="coleccion">
     {#if coleccion.portada}
@@ -255,7 +265,12 @@
           : formato(t.spotifyCanciones, total, calidad === "mp3" ? "MP3" : "M4A")}
       </p>
       {#if coleccion.totalReal}
-        <p class="aviso">{formato(t.spotifyLimite, coleccion.totalReal)}</p>
+        <p class="aviso">{formato(idTexto === null ? t.spotifyLimite : t.listaTextoLimite, coleccion.totalReal)}</p>
+      {/if}
+      {#if idTexto !== null}
+        <a class="boton tonal editar" href="/canciones?id={encodeURIComponent(idTexto)}">
+          <Icono nombre="editar" tamano={18} />{t.listaTextoEditar}
+        </a>
       {/if}
     </div>
   </section>
@@ -299,7 +314,13 @@
           <span class="numero">{cancion.posicion}</span>
           <span class="textos">
             <span class="titulo">{cancion.titulo}</span>
-            <span class="detalle">{cancion.artistas.join(", ")} · {duracion(cancion.duracionMs)}</span>
+            {#if cancion.artistas.length || cancion.duracionMs}
+              <span class="detalle">
+                {[cancion.artistas.join(", "), cancion.duracionMs ? duracion(cancion.duracionMs) : ""]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            {/if}
             {#if co?.elegido}
               <span class="detalle">
                 ▶ {co.elegido.titulo}{co.elegido.canal ? ` · ${co.elegido.canal}` : ""}{co.elegido.duracion
@@ -458,6 +479,11 @@
     margin: 0;
     font-size: 0.87rem;
     color: var(--on-surface-variant);
+  }
+
+  .editar {
+    margin-top: 10px;
+    text-decoration: none;
   }
 
   .aviso {

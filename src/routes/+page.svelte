@@ -15,6 +15,7 @@
   import TarjetaDescarga from "$lib/TarjetaDescarga.svelte";
   import { actualizarMotor, cargarVersiones, DIAS_MOTOR_ANTIGUO, diasMotor, motor } from "$lib/motor.svelte";
   import { formato } from "$lib/i18n";
+  import { pareceListaDeCanciones, textoPegado } from "$lib/spotify";
 
   let enlace = $state("");
   let error = $state("");
@@ -70,6 +71,27 @@
   async function pegar() {
     const url = await invoke<string | null>("enlace_del_portapapeles");
     if (url) ponerEnlace(url);
+    else await listaDelPortapapeles();
+  }
+
+  // Una lista de canciones en texto (sin enlaces): a su pantalla
+  async function listaDelPortapapeles(): Promise<boolean> {
+    const texto = await invoke<string | null>("texto_del_portapapeles");
+    if (!texto || !pareceListaDeCanciones(texto)) return false;
+    abrirCanciones(texto);
+    return true;
+  }
+
+  function abrirCanciones(texto = "") {
+    textoPegado.valor = texto;
+    goto("/canciones");
+  }
+
+  function alPegar(evento: ClipboardEvent) {
+    const texto = evento.clipboardData?.getData("text/plain") ?? "";
+    if (extraerUrl(texto) || !pareceListaDeCanciones(texto)) return;
+    evento.preventDefault();
+    abrirCanciones(texto);
   }
 
   // Ctrl+V fuera del campo: pegar y descargar de una vez
@@ -81,6 +103,8 @@
     if (url) {
       enlace = url;
       pedir(url);
+    } else {
+      await listaDelPortapapeles();
     }
   }
 
@@ -190,6 +214,7 @@
       type="text"
       bind:value={enlace}
       oninput={() => (error = "")}
+      onpaste={alPegar}
       placeholder={t.campoEnlace}
       title={t.campoAyuda}
       spellcheck="false"
@@ -208,6 +233,15 @@
     {:else}
       <button type="button" class="boton-icono" title={t.pegar} aria-label={t.pegar} onclick={pegar}>
         <Icono nombre="pegar" tamano={20} />
+      </button>
+      <button
+        type="button"
+        class="boton-icono"
+        title={t.listaTextoEntrada}
+        aria-label={t.listaTextoEntrada}
+        onclick={() => abrirCanciones()}
+      >
+        <Icono nombre="audio" tamano={20} />
       </button>
     {/if}
   </div>

@@ -72,6 +72,13 @@ same idea, the same colors and everything learned there about each platform.
   disc and the main artist (the rest as "feat." in the title); a playlist is tagged as a
   "Various Artists" compilation so Plex does not split it into one album per artist. In Plex,
   turn on "Prefer local metadata" for the library.
+- **A list of songs as text**: paste into the field (or use the ♪ button next to it) one song
+  per line, like `Artist - Title`, copied from anywhere: a note, an email, a spreadsheet…
+  Klippo removes numbering and bullets, uses the length if it's there (`3:45`) and shows right
+  away how many songs it understood. Give it a name and from then on it works just like Spotify:
+  it searches each one on YouTube, tells you how close the match is, the magnifier to search by
+  hand, "Download all" and `Downloads\Klippo\<name>\`. The cover is the video's picture, made
+  square. "Edit the list" takes you back to the text. Up to 500 songs.
 - **Optional login** to Instagram, X and Facebook for videos that require it
   (*Settings → Accounts*, or the button on the failed download). The official website opens in
   a window; Klippo never sees your password and only keeps the cookies, on your computer.

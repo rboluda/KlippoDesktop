@@ -95,6 +95,12 @@ pub fn enlace_del_portapapeles() -> Option<String> {
     entrada::leer_portapapeles().and_then(|texto| enlaces::extraer_url(&texto))
 }
 
+/// Todo el texto del portapapeles (para pegar una lista de canciones)
+#[tauri::command]
+pub fn texto_del_portapapeles() -> Option<String> {
+    entrada::leer_portapapeles()
+}
+
 /// Enlace llegado por el marcador o por un aviso que espera a que se elija la calidad
 #[tauri::command]
 pub fn tomar_enlace_pendiente(entrada: State<Entrada>) -> Option<String> {
@@ -331,6 +337,12 @@ pub async fn leer_spotify(enlace: String) -> Result<spotify::lector::Coleccion, 
     })
     .await
     .map_err(texto)?
+}
+
+/// Una lista de canciones pegada como texto (una por línea, "Artista - Título")
+#[tauri::command]
+pub fn leer_lista_de_texto(texto: String, id: String, nombre: String) -> spotify::lector::Coleccion {
+    spotify::texto::leer(&texto, &id, &nombre)
 }
 
 /// Busca las canciones en YouTube; cada resultado llega con el evento "spotify-resultado" y

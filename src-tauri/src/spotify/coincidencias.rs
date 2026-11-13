@@ -115,9 +115,10 @@ pub fn consulta(cancion: &Cancion) -> String {
     }
 }
 
-/// De 1 (±5 s) a 0 (30 s o más), bajando de forma lineal; 0,5 si YouTube no la da
+/// De 1 (±5 s) a 0 (30 s o más), bajando de forma lineal; 0,5 si YouTube no la da o no se
+/// sabe la de la canción (0, en las listas pegadas como texto)
 pub fn puntos_duracion(spotify_ms: u64, youtube_s: Option<f64>) -> f64 {
-    let Some(youtube) = youtube_s else { return 0.5 };
+    let Some(youtube) = youtube_s.filter(|_| spotify_ms > 0) else { return 0.5 };
     let diferencia = (spotify_ms as f64 / 1000.0 - youtube).abs();
     if diferencia <= TOLERANCIA_S {
         1.0
@@ -128,8 +129,9 @@ pub fn puntos_duracion(spotify_ms: u64, youtube_s: Option<f64>) -> f64 {
     }
 }
 
+/// Sin la duración de la canción no se puede comprobar: no impide que sea idéntica
 fn misma_duracion(spotify_ms: u64, youtube_s: Option<f64>) -> bool {
-    youtube_s.is_some_and(|y| (spotify_ms as f64 / 1000.0 - y).abs() <= TOLERANCIA_S)
+    spotify_ms == 0 || youtube_s.is_some_and(|y| (spotify_ms as f64 / 1000.0 - y).abs() <= TOLERANCIA_S)
 }
 
 /// Proporción de palabras del título base (sin relleno) que aparecen en el de YouTube
@@ -240,6 +242,16 @@ mod pruebas {
         assert_eq!(puntos_duracion(200_000, Some(230.0)), 0.0);
         assert_eq!(puntos_duracion(200_000, Some(400.0)), 0.0);
         assert_eq!(puntos_duracion(200_000, None), 0.5);
+        assert_eq!(puntos_duracion(0, Some(200.0)), 0.5);
+    }
+
+    #[test]
+    fn sin_duracion_conocida_puede_ser_identica() {
+        let c = cancion("Chispa", &["Los Prodigios"], 0);
+        let (g, _) = puntuar(&c, &video("Chispa", "Los Prodigios - Topic", Some(282.0)));
+        assert_eq!(g, Grado::Identica);
+        let directo = puntuar(&c, &video("Los Prodigios - Chispa (Live)", "Los Prodigios", Some(300.0)));
+        assert_ne!(directo.0, Grado::Identica);
     }
 
     #[test]
