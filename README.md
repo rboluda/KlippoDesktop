@@ -105,7 +105,9 @@ misma idea, los mismos colores y lo aprendido allí sobre cada plataforma.
 
 - **Editar** (pulsa la miniatura o el lápiz):
   - Recortar arrastrando los tiradores o escribiendo el inicio y el fin a la décima, con vista
-    previa en bucle del tramo.
+    previa en bucle del tramo. Al soltar el final se ven sus 3 últimos segundos y el vídeo se queda
+    en el fotograma donde corta (el botón «Últimos 3 s» lo repite); al soltar el inicio, los 3
+    primeros.
   - Encuadre 9:16, 1:1, 4:5 o libre: mueve y ajusta el marco sobre el vídeo.
   - Texto con contorno o con fondo, y emojis: se arrastran y cambian de tamaño con la rueda.
   - Pixelar zonas fijas (caras, matrículas…) y quitar el sonido.

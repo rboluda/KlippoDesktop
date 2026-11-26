@@ -76,13 +76,25 @@
     video.currentTime = inicioMs / 1000;
   }
 
+  /** Lo que dura la vista previa de un corte */
+  const PREVIA_MS = 3000;
+  /** Vista previa en marcha: dónde se para (y se queda, para ver el fotograma del corte) */
+  let paradaPrevia: number | null = null;
+
   // Mientras se reproduce: la posición en la barra y, con recorte, en bucle dentro del tramo
   onMount(() => {
     let fotograma = 0;
     const seguir = () => {
       if (video) {
         actualMs = video.currentTime * 1000;
-        if (reproduciendo && actualMs >= finMs) video.currentTime = inicioMs / 1000;
+        if (paradaPrevia !== null && (actualMs >= paradaPrevia || video.ended)) {
+          const parada = paradaPrevia;
+          paradaPrevia = null;
+          video.pause();
+          buscar(parada);
+        } else if (reproduciendo && paradaPrevia === null && actualMs >= finMs) {
+          video.currentTime = inicioMs / 1000;
+        }
       }
       fotograma = requestAnimationFrame(seguir);
     };
@@ -99,6 +111,19 @@
       video.pause();
     }
   }
+
+  /** Reproduce un trozo y se queda parado en `hastaMs` */
+  function previa(desdeMs: number, hastaMs: number) {
+    if (!video) return;
+    paradaPrevia = hastaMs;
+    video.currentTime = desdeMs / 1000;
+    video.play();
+  }
+
+  /** Los últimos segundos del tramo: así se ve dónde corta el final */
+  const verFinal = () => previa(Math.max(inicioMs, finMs - PREVIA_MS), finMs);
+  /** Los primeros segundos del tramo */
+  const verInicio = () => previa(inicioMs, Math.min(finMs, inicioMs + PREVIA_MS));
 
   function buscar(ms: number) {
     if (video) video.currentTime = ms / 1000;
@@ -226,7 +251,7 @@
           muted={p.silenciar}
           onloadedmetadata={alCargar}
           onplay={() => (reproduciendo = true)}
-          onpause={() => (reproduciendo = false)}
+          onpause={() => ((reproduciendo = false), (paradaPrevia = null))}
           onclick={alternarReproduccion}
           preload="auto"
         ></video>
@@ -295,6 +320,8 @@
           onbuscar={buscar}
           onrecorte={cambiarRecorte}
           oneditar={(cual) => (dialogo = cual)}
+          onsoltar={(cual) => (cual === "fin" ? verFinal() : verInicio())}
+          onverfinal={verFinal}
         />
       </div>
     </div>
@@ -354,7 +381,7 @@
     valorMs={inicioMs}
     minimoMs={0}
     maximoMs={finMs - 100}
-    onaceptar={(ms) => (cambiarRecorte(ms, finMs), buscar(ms))}
+    onaceptar={(ms) => (cambiarRecorte(ms, finMs), verInicio())}
     oncerrar={() => (dialogo = null)}
   />
 {:else if dialogo === "fin"}
@@ -363,7 +390,7 @@
     valorMs={finMs}
     minimoMs={inicioMs + 100}
     maximoMs={duracionMs}
-    onaceptar={(ms) => (cambiarRecorte(inicioMs, ms), buscar(ms))}
+    onaceptar={(ms) => (cambiarRecorte(inicioMs, ms), verFinal())}
     oncerrar={() => (dialogo = null)}
   />
 {/if}

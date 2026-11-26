@@ -1,7 +1,10 @@
 <!-- Barra de tiempo: posición de reproducción y los dos tiradores del recorte (inicio y fin).
-     Pulsar la barra salta a ese punto; pulsar las horas permite escribirlas a la décima. -->
+     Pulsar la barra salta a ese punto; pulsar las horas permite escribirlas a la décima.
+     Al soltar un tirador se avisa (el editor enseña cómo queda ese corte) y «Ver el final»
+     reproduce los últimos segundos del tramo. -->
 <script lang="ts">
   import { formato, t } from "../i18n";
+  import Icono from "../Icono.svelte";
   import { arrastrar } from "./arrastre";
   import { formatearTiempo } from "./tiempo";
 
@@ -13,6 +16,8 @@
     onbuscar,
     onrecorte,
     oneditar,
+    onsoltar,
+    onverfinal,
   }: {
     duracionMs: number;
     actualMs: number;
@@ -21,6 +26,8 @@
     onbuscar: (ms: number) => void;
     onrecorte: (inicioMs: number, finMs: number) => void;
     oneditar: (cual: "inicio" | "fin") => void;
+    onsoltar: (cual: "inicio" | "fin") => void;
+    onverfinal: () => void;
   } = $props();
 
   /** Lo mínimo que puede durar el recorte */
@@ -37,7 +44,11 @@
 
   function empezar(evento: PointerEvent, que: "inicio" | "fin" | "posicion") {
     mover(evento, que);
-    arrastrar(evento, (_dx, _dy, e) => mover(e, que));
+    arrastrar(
+      evento,
+      (_dx, _dy, e) => mover(e, que),
+      () => que !== "posicion" && onsoltar(que),
+    );
   }
 
   function mover(evento: PointerEvent, que: "inicio" | "fin" | "posicion") {
@@ -87,6 +98,9 @@
       role="presentation"
     ></span>
   </div>
+  <button class="hora ver-final" onclick={onverfinal} title={t.verFinal}>
+    <Icono nombre="reproducir" tamano={18} />{t.verFinalCorto}
+  </button>
   <button class="hora" onclick={() => oneditar("fin")} title={t.escribirTiempo}>
     {formato(t.recorteFin, formatearTiempo(finMs))}
   </button>
@@ -113,6 +127,14 @@
 
   .hora:hover {
     border-color: var(--primary);
+  }
+
+  .ver-final {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    color: var(--primary);
   }
 
   .barra {

@@ -105,7 +105,8 @@ same idea, the same colors and everything learned there about each platform.
 
 - **Edit** (click the thumbnail or the pencil):
   - Trim by dragging the handles or typing the start and end to the tenth of a second, with a
-    looping preview of the selection.
+    looping preview of the selection. Releasing the end plays its last 3 seconds and stops on the
+    frame where it cuts (the "Last 3 s" button repeats it); releasing the start, the first 3.
   - Crop to 9:16, 1:1, 4:5 or free: move and resize the frame over the video.
   - Text with outline or background, and emojis: drag them and resize with the mouse wheel.
   - Pixelate fixed areas (faces, number plates…) and remove the sound.
